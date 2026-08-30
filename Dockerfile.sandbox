@@ -1,0 +1,39 @@
+# Shipshape Isolated Execution Sandbox
+# Pinned Node 24 baseline matching engines specification
+
+FROM node:24-alpine
+
+# Install libc6-compat for Turbopack and native binary compatibility on Alpine Linux
+RUN apk add --no-cache libc6-compat
+
+# Set environment paths and permissions
+ENV NODE_ENV=development
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+ENV PATH="/home/node/node_modules/.bin:${PATH}"
+ENV NODE_PATH="/home/node/node_modules"
+
+# Pre-warm standard Next.js baseline dependencies in /home/node
+# Allows instant compilation without repeated network dependency fetches
+WORKDIR /home/node
+RUN chown -R node:node /home/node
+
+USER node
+
+RUN npm install --no-audit --no-fund \
+  next@16.4.3 \
+  react@19.3.0 \
+  react-dom@19.3.0 \
+  typescript@5 \
+  @types/react@19 \
+  @types/react-dom@19 \
+  @types/node@22
+
+# Working directory for mounted project workspace
+WORKDIR /home/node/app
+
+# Expose Next.js development/production server port
+EXPOSE 3000
+
+# Keep container running to accept structured docker exec commands and managed processes
+CMD ["node", "-e", "setInterval(() => {}, 1000)"]

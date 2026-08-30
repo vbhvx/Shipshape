@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.sandboxes
+.shipshape-data
+dist
+out
+coverage
+
