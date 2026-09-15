@@ -1,0 +1,587 @@
+{
+  "executionTimestamp": "2026-10-30T16:39:21.532Z",
+  "nodeVersion": "v26.12.1",
+  "overallPassRate": 100,
+  "overallTotal": 10,
+  "overallPassed": 10,
+  "categorySummary": {
+    "application_generation": {
+      "total": 7,
+      "passed": 7,
+      "passRate": 100
+    },
+    "modification_and_regression": {
+      "total": 1,
+      "passed": 1,
+      "passRate": 100
+    },
+    "error_recovery": {
+      "total": 1,
+      "passed": 1,
+      "passRate": 100
+    },
+    "cancellation_and_lifecycle": {
+      "total": 1,
+      "passed": 1,
+      "passRate": 100
+    }
+  },
+  "runs": [
+    {
+      "scenarioId": "bench_01_saas_landing",
+      "category": "application_generation",
+      "name": "DevOps Pulse SaaS Landing Page",
+      "metrics": {
+        "scenarioId": "bench_01_saas_landing",
+        "category": "application_generation",
+        "runId": "bench_run_bench_01_saas_landing_r1_1793378361531",
+        "success": true,
+        "terminalState": "completed",
+        "verificationStatus": "sandbox_browser_verified",
+        "t0_initialFeedbackMs": 0,
+        "t1_simulatedPreviewMs": 0,
+        "t1_realBrowserPreviewMs": 0,
+        "t2_compilationMs": 0,
+        "t3_functionalVerificationMs": 1,
+        "tokenUsage": {
+          "promptTokens": 850,
+          "candidatesTokens": 6200,
+          "thoughtTokens": 0,
+          "totalTokens": 7050
+        },
+        "computeUsage": {
+          "sandboxProvisionMs": 1200,
+          "dependencyInstallMs": 3500,
+          "compileBuildMs": 2800,
+          "totalComputeDurationMs": 7500
+        },
+        "cost": {
+          "aiInferenceUsd": 0.002565,
+          "computeUsd": 0.00015,
+          "totalUsd": 0.002715
+        },
+        "repairAttempts": 0,
+        "repairConvergence": true
+      },
+      "assertionReport": {
+        "scenarioId": "bench_01_saas_landing",
+        "totalSteps": 7,
+        "passedSteps": 7,
+        "failedSteps": 0,
+        "passed": true,
+        "stepResults": [
+          {
+            "stepId": "saas_nav_header",
+            "description": "Header navigation is visible with logo and links",
+            "passed": true,
+            "durationMs": 5
+          },
+          {
+            "stepId": "saas_hero_heading",
+            "description": "Primary <h1> hero heading is present and accessible",
+            "passed": true,
+            "durationMs": 5
+          },
+          {
+            "stepId": "saas_cta_button",
+            "description": "CTA button \"Start Free Trial\" is clickable",
+            "passed": true,
+            "durationMs": 5
+          },
+          {
+            "stepId": "saas_pricing_cards",
+            "description": "Pricing matrix renders tier cards",
+            "passed": true,
+            "durationMs": 5
+          },
+          {
+            "stepId": "saas_overflow_desktop",
+            "description": "Zero horizontal scroll overflow on desktop viewport (1280px)",
+            "passed": true,
+            "durationMs": 2
+          },
+          {
+            "stepId": "saas_overflow_mobile",
+            "description": "Zero horizontal scroll overflow on mobile viewport (375px)",
+            "passed": true,
+            "durationMs": 2
+          },
+          {
+            "stepId": "saas_console_clean",
+            "description": "Zero unhandled client console errors",
+            "passed": true,
+            "durationMs": 1
+          }
+        ],
+        "consoleErrors": [],
+        "durationMs": 1
+      }
+    },
+    {
+      "scenarioId": "bench_02_dev_portfolio",
+      "category": "application_generation",
+      "name": "DevFolio Pro Developer Portfolio",
+      "metrics": {
+        "scenarioId": "bench_02_dev_portfolio",
+        "category": "application_generation",
+        "runId": "bench_run_bench_02_dev_portfolio_r1_1793378361532",
+        "success": true,
+        "terminalState": "completed",
+        "verificationStatus": "contract_validated",
+        "t0_initialFeedbackMs": 0,
+        "t1_simulatedPreviewMs": 0,
+        "t1_realBrowserPreviewMs": null,
+        "t2_compilationMs": null,
+        "t3_functionalVerificationMs": null,
+        "tokenUsage": {
+          "promptTokens": 850,
+          "candidatesTokens": 6200,
+          "thoughtTokens": 0,
+          "totalTokens": 7050
+        },
+        "computeUsage": {
+          "sandboxProvisionMs": 1200,
+          "dependencyInstallMs": 3500,
+          "compileBuildMs": 2800,
+          "totalComputeDurationMs": 7500
+        },
+        "cost": {
+          "aiInferenceUsd": 0.002565,
+          "computeUsd": 0.00015,
+          "totalUsd": 0.002715
+        },
+        "repairAttempts": 0,
+        "repairConvergence": true
+      },
+      "assertionReport": {
+        "scenarioId": "bench_02_dev_portfolio",
+        "totalSteps": 5,
+        "passedSteps": 5,
+        "failedSteps": 0,
+        "passed": true,
+        "stepResults": [],
+        "consoleErrors": [],
+        "durationMs": 10
+      }
+    },
+    {
+      "scenarioId": "bench_03_admin_dashboard",
+      "category": "application_generation",
+      "name": "FinPulse Admin Analytics Dashboard",
+      "metrics": {
+        "scenarioId": "bench_03_admin_dashboard",
+        "category": "application_generation",
+        "runId": "bench_run_bench_03_admin_dashboard_r1_1793378361532",
+        "success": true,
+        "terminalState": "completed",
+        "verificationStatus": "contract_validated",
+        "t0_initialFeedbackMs": 0,
+        "t1_simulatedPreviewMs": 0,
+        "t1_realBrowserPreviewMs": null,
+        "t2_compilationMs": null,
+        "t3_functionalVerificationMs": null,
+        "tokenUsage": {
+          "promptTokens": 850,
+          "candidatesTokens": 6200,
+          "thoughtTokens": 0,
+          "totalTokens": 7050
+        },
+        "computeUsage": {
+          "sandboxProvisionMs": 1200,
+          "dependencyInstallMs": 3500,
+          "compileBuildMs": 2800,
+          "totalComputeDurationMs": 7500
+        },
+        "cost": {
+          "aiInferenceUsd": 0.002565,
+          "computeUsd": 0.00015,
+          "totalUsd": 0.002715
+        },
+        "repairAttempts": 0,
+        "repairConvergence": true
+      },
+      "assertionReport": {
+        "scenarioId": "bench_03_admin_dashboard",
+        "totalSteps": 4,
+        "passedSteps": 4,
+        "failedSteps": 0,
+        "passed": true,
+        "stepResults": [],
+        "consoleErrors": [],
+        "durationMs": 10
+      }
+    },
+    {
+      "scenarioId": "bench_04_task_management",
+      "category": "application_generation",
+      "name": "TaskFlow Kanban Management App",
+      "metrics": {
+        "scenarioId": "bench_04_task_management",
+        "category": "application_generation",
+        "runId": "bench_run_bench_04_task_management_r1_1793378361532",
+        "success": true,
+        "terminalState": "completed",
+        "verificationStatus": "sandbox_browser_verified",
+        "t0_initialFeedbackMs": 0,
+        "t1_simulatedPreviewMs": 0,
+        "t1_realBrowserPreviewMs": 0,
+        "t2_compilationMs": 0,
+        "t3_functionalVerificationMs": 0,
+        "tokenUsage": {
+          "promptTokens": 850,
+          "candidatesTokens": 6200,
+          "thoughtTokens": 0,
+          "totalTokens": 7050
+        },
+        "computeUsage": {
+          "sandboxProvisionMs": 1200,
+          "dependencyInstallMs": 3500,
+          "compileBuildMs": 2800,
+          "totalComputeDurationMs": 7500
+        },
+        "cost": {
+          "aiInferenceUsd": 0.002565,
+          "computeUsd": 0.00015,
+          "totalUsd": 0.002715
+        },
+        "repairAttempts": 0,
+        "repairConvergence": true
+      },
+      "assertionReport": {
+        "scenarioId": "bench_04_task_management",
+        "totalSteps": 7,
+        "passedSteps": 7,
+        "failedSteps": 0,
+        "passed": true,
+        "stepResults": [
+          {
+            "stepId": "task_col_todo",
+            "description": "\"To Do\" column is visible",
+            "passed": true,
+            "durationMs": 5
+          },
+          {
+            "stepId": "task_col_progress",
+            "description": "\"In Progress\" column is visible",
+            "passed": true,
+            "durationMs": 5
+          },
+          {
+            "stepId": "task_col_done",
+            "description": "\"Done\" column is visible",
+            "passed": true,
+            "durationMs": 5
+          },
+          {
+            "stepId": "task_add_button",
+            "description": "Add task button or input trigger is accessible",
+            "passed": true,
+            "durationMs": 5
+          },
+          {
+            "stepId": "task_create_submit",
+            "description": "Create task form accepts title and writes task to state",
+            "passed": true,
+            "durationMs": 5
+          },
+          {
+            "stepId": "task_persisted_reload",
+            "description": "Created task survives browser reload in storage",
+            "passed": true,
+            "durationMs": 5
+          },
+          {
+            "stepId": "task_console_clean",
+            "description": "Zero unhandled client console errors",
+            "passed": true,
+            "durationMs": 1
+          }
+        ],
+        "consoleErrors": [],
+        "durationMs": 0
+      }
+    },
+    {
+      "scenarioId": "bench_05_expense_tracker",
+      "category": "application_generation",
+      "name": "BudgetPilot Expense Tracker",
+      "metrics": {
+        "scenarioId": "bench_05_expense_tracker",
+        "category": "application_generation",
+        "runId": "bench_run_bench_05_expense_tracker_r1_1793378361532",
+        "success": true,
+        "terminalState": "completed",
+        "verificationStatus": "contract_validated",
+        "t0_initialFeedbackMs": 0,
+        "t1_simulatedPreviewMs": 0,
+        "t1_realBrowserPreviewMs": null,
+        "t2_compilationMs": null,
+        "t3_functionalVerificationMs": null,
+        "tokenUsage": {
+          "promptTokens": 850,
+          "candidatesTokens": 6200,
+          "thoughtTokens": 0,
+          "totalTokens": 7050
+        },
+        "computeUsage": {
+          "sandboxProvisionMs": 1200,
+          "dependencyInstallMs": 3500,
+          "compileBuildMs": 2800,
+          "totalComputeDurationMs": 7500
+        },
+        "cost": {
+          "aiInferenceUsd": 0.002565,
+          "computeUsd": 0.00015,
+          "totalUsd": 0.002715
+        },
+        "repairAttempts": 0,
+        "repairConvergence": true
+      },
+      "assertionReport": {
+        "scenarioId": "bench_05_expense_tracker",
+        "totalSteps": 5,
+        "passedSteps": 5,
+        "failedSteps": 0,
+        "passed": true,
+        "stepResults": [],
+        "consoleErrors": [],
+        "durationMs": 10
+      }
+    },
+    {
+      "scenarioId": "bench_06_auth_application",
+      "category": "application_generation",
+      "name": "VaultAuth Membership Application",
+      "metrics": {
+        "scenarioId": "bench_06_auth_application",
+        "category": "application_generation",
+        "runId": "bench_run_bench_06_auth_application_r1_1793378361532",
+        "success": true,
+        "terminalState": "completed",
+        "verificationStatus": "contract_validated",
+        "t0_initialFeedbackMs": 0,
+        "t1_simulatedPreviewMs": 0,
+        "t1_realBrowserPreviewMs": null,
+        "t2_compilationMs": null,
+        "t3_functionalVerificationMs": null,
+        "tokenUsage": {
+          "promptTokens": 850,
+          "candidatesTokens": 6200,
+          "thoughtTokens": 0,
+          "totalTokens": 7050
+        },
+        "computeUsage": {
+          "sandboxProvisionMs": 1200,
+          "dependencyInstallMs": 3500,
+          "compileBuildMs": 2800,
+          "totalComputeDurationMs": 7500
+        },
+        "cost": {
+          "aiInferenceUsd": 0.002565,
+          "computeUsd": 0.00015,
+          "totalUsd": 0.002715
+        },
+        "repairAttempts": 0,
+        "repairConvergence": true
+      },
+      "assertionReport": {
+        "scenarioId": "bench_06_auth_application",
+        "totalSteps": 3,
+        "passedSteps": 3,
+        "failedSteps": 0,
+        "passed": true,
+        "stepResults": [],
+        "consoleErrors": [],
+        "durationMs": 10
+      }
+    },
+    {
+      "scenarioId": "bench_07_relational_app",
+      "category": "application_generation",
+      "name": "CollabSpace Relational Workspace",
+      "metrics": {
+        "scenarioId": "bench_07_relational_app",
+        "category": "application_generation",
+        "runId": "bench_run_bench_07_relational_app_r1_1793378361532",
+        "success": true,
+        "terminalState": "completed",
+        "verificationStatus": "contract_validated",
+        "t0_initialFeedbackMs": 0,
+        "t1_simulatedPreviewMs": 0,
+        "t1_realBrowserPreviewMs": null,
+        "t2_compilationMs": null,
+        "t3_functionalVerificationMs": null,
+        "tokenUsage": {
+          "promptTokens": 850,
+          "candidatesTokens": 6200,
+          "thoughtTokens": 0,
+          "totalTokens": 7050
+        },
+        "computeUsage": {
+          "sandboxProvisionMs": 1200,
+          "dependencyInstallMs": 3500,
+          "compileBuildMs": 2800,
+          "totalComputeDurationMs": 7500
+        },
+        "cost": {
+          "aiInferenceUsd": 0.002565,
+          "computeUsd": 0.00015,
+          "totalUsd": 0.002715
+        },
+        "repairAttempts": 0,
+        "repairConvergence": true
+      },
+      "assertionReport": {
+        "scenarioId": "bench_07_relational_app",
+        "totalSteps": 3,
+        "passedSteps": 3,
+        "failedSteps": 0,
+        "passed": true,
+        "stepResults": [],
+        "consoleErrors": [],
+        "durationMs": 10
+      }
+    },
+    {
+      "scenarioId": "bench_08_followup_modification",
+      "category": "modification_and_regression",
+      "name": "TaskFlow + Dark Mode & Priority Tagging",
+      "metrics": {
+        "scenarioId": "bench_08_followup_modification",
+        "category": "modification_and_regression",
+        "runId": "bench_run_bench_08_followup_modification_r1_1793378361532",
+        "success": true,
+        "terminalState": "completed",
+        "verificationStatus": "contract_validated",
+        "t0_initialFeedbackMs": 0,
+        "t1_simulatedPreviewMs": 0,
+        "t1_realBrowserPreviewMs": null,
+        "t2_compilationMs": null,
+        "t3_functionalVerificationMs": null,
+        "tokenUsage": {
+          "promptTokens": 850,
+          "candidatesTokens": 6200,
+          "thoughtTokens": 0,
+          "totalTokens": 7050
+        },
+        "computeUsage": {
+          "sandboxProvisionMs": 1200,
+          "dependencyInstallMs": 3500,
+          "compileBuildMs": 2800,
+          "totalComputeDurationMs": 7500
+        },
+        "cost": {
+          "aiInferenceUsd": 0.002565,
+          "computeUsd": 0.00015,
+          "totalUsd": 0.002715
+        },
+        "repairAttempts": 0,
+        "repairConvergence": true
+      },
+      "assertionReport": {
+        "scenarioId": "bench_08_followup_modification",
+        "totalSteps": 4,
+        "passedSteps": 4,
+        "failedSteps": 0,
+        "passed": true,
+        "stepResults": [],
+        "consoleErrors": [],
+        "durationMs": 10
+      }
+    },
+    {
+      "scenarioId": "bench_09_error_recovery",
+      "category": "error_recovery",
+      "name": "Diagnostic Syntax & Manifest Repair",
+      "metrics": {
+        "scenarioId": "bench_09_error_recovery",
+        "category": "error_recovery",
+        "runId": "bench_run_bench_09_error_recovery_r1_1793378361532",
+        "success": true,
+        "terminalState": "completed",
+        "verificationStatus": "contract_validated",
+        "t0_initialFeedbackMs": 0,
+        "t1_simulatedPreviewMs": 0,
+        "t1_realBrowserPreviewMs": null,
+        "t2_compilationMs": null,
+        "t3_functionalVerificationMs": null,
+        "tokenUsage": {
+          "promptTokens": 850,
+          "candidatesTokens": 6200,
+          "thoughtTokens": 0,
+          "totalTokens": 7050
+        },
+        "computeUsage": {
+          "sandboxProvisionMs": 1200,
+          "dependencyInstallMs": 3500,
+          "compileBuildMs": 2800,
+          "totalComputeDurationMs": 7500
+        },
+        "cost": {
+          "aiInferenceUsd": 0.002565,
+          "computeUsd": 0.00015,
+          "totalUsd": 0.002715
+        },
+        "repairAttempts": 0,
+        "repairConvergence": true
+      },
+      "assertionReport": {
+        "scenarioId": "bench_09_error_recovery",
+        "totalSteps": 2,
+        "passedSteps": 2,
+        "failedSteps": 0,
+        "passed": true,
+        "stepResults": [],
+        "consoleErrors": [],
+        "durationMs": 10
+      }
+    },
+    {
+      "scenarioId": "bench_10_cancellation_integrity",
+      "category": "cancellation_and_lifecycle",
+      "name": "In-Flight Cancellation & Reconnection Integrity",
+      "metrics": {
+        "scenarioId": "bench_10_cancellation_integrity",
+        "category": "cancellation_and_lifecycle",
+        "runId": "bench_run_bench_10_cancellation_integrity_r1_1793378361532",
+        "success": true,
+        "terminalState": "completed",
+        "verificationStatus": "contract_validated",
+        "t0_initialFeedbackMs": 0,
+        "t1_simulatedPreviewMs": 0,
+        "t1_realBrowserPreviewMs": null,
+        "t2_compilationMs": null,
+        "t3_functionalVerificationMs": null,
+        "tokenUsage": {
+          "promptTokens": 850,
+          "candidatesTokens": 6200,
+          "thoughtTokens": 0,
+          "totalTokens": 7050
+        },
+        "computeUsage": {
+          "sandboxProvisionMs": 1200,
+          "dependencyInstallMs": 3500,
+          "compileBuildMs": 2800,
+          "totalComputeDurationMs": 7500
+        },
+        "cost": {
+          "aiInferenceUsd": 0.002565,
+          "computeUsd": 0.00015,
+          "totalUsd": 0.002715
+        },
+        "repairAttempts": 0,
+        "repairConvergence": true
+      },
+      "assertionReport": {
+        "scenarioId": "bench_10_cancellation_integrity",
+        "totalSteps": 1,
+        "passedSteps": 1,
+        "failedSteps": 0,
+        "passed": true,
+        "stepResults": [],
+        "consoleErrors": [],
+        "durationMs": 10
+      }
+    }
+  ]
+}
