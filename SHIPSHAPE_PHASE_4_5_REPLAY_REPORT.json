@@ -1,0 +1,144 @@
+{
+  "timestamp": "2026-10-30T18:28:41.157Z",
+  "suite": "Deterministic Model Replay & Container Browser Evaluation",
+  "dockerVersion": "29.9.2 (Colima Alpine Node 24)",
+  "browserVersion": "Playwright Headless Chromium 156.0.8078.4",
+  "overallPassed": true,
+  "totalScenarios": 4,
+  "scenariosPassed": 4,
+  "scenariosFailed": 0,
+  "totalDurationMs": 43583,
+  "scenarios": [
+    {
+      "scenarioId": "bench_01_saas_landing",
+      "name": "DevOps Pulse SaaS Landing Page",
+      "modelProvider": "fixture",
+      "modelIdentifier": "fixture_devops_pulse_v1",
+      "fixtureVersion": "1.0.0",
+      "filesGenerated": 8,
+      "status": "passed",
+      "turbopackBuildPassed": true,
+      "serverReady": true,
+      "browserVerificationPassed": true,
+      "viewportCompliance": {
+        "desktop1280x800": true,
+        "mobile375x667": true
+      },
+      "clientConsoleErrors": 0,
+      "latency": {
+        "generationReplayMs": 0,
+        "sandboxSpawnMs": 285,
+        "turbopackBuildMs": 9476,
+        "serverStartupMs": 635,
+        "playwrightVerificationMs": 823,
+        "totalMs": 13431
+      },
+      "tokens": {
+        "promptTokens": 890,
+        "candidatesTokens": 5420,
+        "totalTokens": 6310
+      }
+    },
+    {
+      "scenarioId": "bench_04_task_management",
+      "name": "TaskFlow Kanban Management App",
+      "modelProvider": "fixture",
+      "modelIdentifier": "fixture_taskflow_kanban_v1",
+      "fixtureVersion": "1.0.0",
+      "filesGenerated": 7,
+      "status": "passed",
+      "turbopackBuildPassed": true,
+      "serverReady": true,
+      "browserVerificationPassed": true,
+      "persistenceVerified": true,
+      "viewportCompliance": {
+        "desktop1280x800": true,
+        "mobile375x667": true
+      },
+      "clientConsoleErrors": 0,
+      "latency": {
+        "generationReplayMs": 0,
+        "sandboxSpawnMs": 184,
+        "turbopackBuildMs": 8842,
+        "serverStartupMs": 610,
+        "playwrightVerificationMs": 1584,
+        "totalMs": 13392
+      },
+      "tokens": {
+        "promptTokens": 920,
+        "candidatesTokens": 6100,
+        "totalTokens": 7020
+      }
+    },
+    {
+      "scenarioId": "bench_09_error_recovery",
+      "name": "Bounded Repair Loop Convergence",
+      "modelProvider": "fixture",
+      "modelIdentifier": "fixture_repairable_syntax",
+      "fixtureVersion": "1.0.0",
+      "filesGenerated": 8,
+      "status": "repair_converged",
+      "turbopackBuildPassed": true,
+      "serverReady": true,
+      "browserVerificationPassed": true,
+      "viewportCompliance": {
+        "desktop1280x800": true,
+        "mobile375x667": true
+      },
+      "clientConsoleErrors": 0,
+      "repairDetails": {
+        "attemptsUsed": 1,
+        "initialBuildFailed": true,
+        "repairedBuildPassed": true
+      },
+      "latency": {
+        "generationReplayMs": 25,
+        "sandboxSpawnMs": 350,
+        "turbopackBuildMs": 5266,
+        "serverStartupMs": 450,
+        "playwrightVerificationMs": 320,
+        "totalMs": 15322
+      },
+      "tokens": {
+        "promptTokens": 580,
+        "candidatesTokens": 1800,
+        "totalTokens": 2380
+      }
+    },
+    {
+      "scenarioId": "bench_09_unrepairable_fatal",
+      "name": "Unrepairable Fatal Defect Bounded Termination",
+      "modelProvider": "fixture",
+      "modelIdentifier": "fixture_unrepairable_fatal",
+      "fixtureVersion": "1.0.0",
+      "filesGenerated": 8,
+      "status": "passed",
+      "turbopackBuildPassed": false,
+      "serverReady": false,
+      "browserVerificationPassed": false,
+      "viewportCompliance": {
+        "desktop1280x800": false,
+        "mobile375x667": false
+      },
+      "clientConsoleErrors": 0,
+      "repairDetails": {
+        "attemptsUsed": 3,
+        "initialBuildFailed": true,
+        "repairedBuildPassed": false
+      },
+      "latency": {
+        "generationReplayMs": 10,
+        "sandboxSpawnMs": 0,
+        "turbopackBuildMs": 0,
+        "serverStartupMs": 0,
+        "playwrightVerificationMs": 0,
+        "totalMs": 1415
+      },
+      "tokens": {
+        "promptTokens": 300,
+        "candidatesTokens": 400,
+        "totalTokens": 700
+      }
+    }
+  ]
+}
