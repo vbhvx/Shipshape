@@ -1,0 +1,120 @@
+{
+  "evaluationTimestamp": "2026-10-31T14:55:45.073Z",
+  "milestone": "Phase 4.7 — Live Gemini Pilot Verification (DevOps Pulse Single Run)",
+  "executionMode": "pilot",
+  "environment": {
+    "nodeVersion": "v26.12.1",
+    "model": "gemini-3.6-flash",
+    "dockerEngine": "Docker 29.9.2 (Colima Alpine Node 24)",
+    "browserEngine": "Playwright Chromium 156.0.8078.4"
+  },
+  "budget": {
+    "limits": {
+      "maxTotalRequests": 4,
+      "maxPreflightRequests": 1,
+      "maxGenerationRequests": 2,
+      "maxModificationRequests": 0,
+      "maxRepairRequests": 0
+    },
+    "totalRequests": 3,
+    "preflightRequests": 1,
+    "generationRequests": 2,
+    "modificationRequests": 0,
+    "repairRequests": 0,
+    "successfulRequests": 1,
+    "failedRequests": 2,
+    "inFlightRequests": 0,
+    "tokenTotals": {
+      "promptTokens": 9,
+      "candidatesTokens": 1,
+      "totalTokens": 10
+    }
+  },
+  "summary": {
+    "totalRuns": 1,
+    "passedRuns": 0,
+    "overallPassRate": 0,
+    "totalAllAttemptsCostUsd": 0,
+    "costStatus": "unconfirmed_charges_present",
+    "generationFinancialCharge": "unknown_unconfirmed",
+    "generationUsageMetadata": "not_received",
+    "totalVerifiedCount": 0,
+    "costPerSuccessUsd": null
+  },
+  "runs": [
+    {
+      "scenarioId": "bench_01_saas_landing",
+      "category": "application_generation",
+      "scenarioName": "DevOps Pulse SaaS Landing Page",
+      "repetition": 1,
+      "projectId": "proj_live_bench_01_saas_landing_r1_1793458533241",
+      "runId": "run_live_bench_01_saas_landing_r1_1793458533241",
+      "modelIdentifier": "deterministic-engine-v1",
+      "modelProvider": "deterministic",
+      "success": false,
+      "verificationStatus": "contract_validated",
+      "metrics": {
+        "scenarioId": "bench_01_saas_landing",
+        "category": "application_generation",
+        "runId": "run_live_bench_01_saas_landing_r1_1793458533241",
+        "success": false,
+        "terminalState": "failed",
+        "verificationStatus": "contract_validated",
+        "t0_initialFeedbackMs": 1,
+        "t1_simulatedPreviewMs": null,
+        "t1_realBrowserPreviewMs": null,
+        "t2_compilationMs": null,
+        "t3_functionalVerificationMs": null,
+        "tokenUsage": {
+          "promptTokens": 0,
+          "candidatesTokens": 0,
+          "thoughtTokens": 0,
+          "totalTokens": 0
+        },
+        "computeUsage": {
+          "coldStartupMs": 0,
+          "warmStartupMs": 0,
+          "sandboxProvisionMs": 0,
+          "dependencyInstallMs": 0,
+          "compileBuildMs": 0,
+          "totalComputeDurationMs": 0
+        },
+        "cost": {
+          "aiInferenceUsd": 0,
+          "computeUsd": 0,
+          "totalUsd": 0
+        },
+        "repairAttempts": 0,
+        "repairConvergence": true,
+        "failureReason": "Live Gemini request unfulfilled (GEMINI_INFERENCE_ERROR HTTP 503): This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later."
+      },
+      "failureReason": "Live Gemini request unfulfilled (GEMINI_INFERENCE_ERROR HTTP 503): This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "errorCode": "GEMINI_INFERENCE_ERROR",
+      "rawHttpStatus": 503,
+      "upstreamErrorMessage": "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "dimensions": {
+        "geminiGenerationSuccess": false,
+        "projectCompilationSuccess": false,
+        "previewStartupSuccess": false,
+        "browserVerificationSuccess": false,
+        "modificationSuccess": null,
+        "repairConvergence": null,
+        "overallVerifiedSuccess": false
+      },
+      "tokenMetadata": {
+        "promptTokens": 0,
+        "candidatesTokens": 0,
+        "totalTokens": 0,
+        "isSyntheticTokenCount": false,
+        "usageMetadataReceived": false
+      },
+      "costStatus": "unknown_unconfirmed",
+      "generatedFileCount": 14,
+      "aiRequestDurationMs": 11830,
+      "compilationDurationMs": 0,
+      "serverStartupMs": 0,
+      "browserVerificationDurationMs": 0,
+      "totalCostUsd": null
+    }
+  ]
+}
