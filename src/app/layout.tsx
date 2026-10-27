@@ -16,6 +16,11 @@ export const metadata: Metadata = {
   title: "Shipshape — AI-Powered Full-Stack Application Builder",
   description:
     "Convert natural language product requirements into complete, executable Next.js applications with isolated sandboxes, live preview, version diffs, and source export.",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

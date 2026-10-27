@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="shipshape-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="50%" stop-color="#4f46e5" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <linearGradient id="sail-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#e0e7ff" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect width="32" height="32" rx="8" fill="url(#shipshape-grad)" />
+
+  <!-- Shipshape Sailboat / Origami Symbol -->
+  <g filter="url(#shadow)" fill="url(#sail-grad)">
+    <!-- Main Sail -->
+    <path d="M15 6 L15 19 L23 19 Z" opacity="0.95" />
+    <!-- Front Jib Sail -->
+    <path d="M13 9 L13 19 L8 19 Z" opacity="0.8" />
+    <!-- Hull Base -->
+    <path d="M7 21 C9 24 23 24 25 21 L23 23.5 C19 25.5 13 25.5 9 23.5 Z" />
+  </g>
+</svg>
