@@ -1,0 +1,267 @@
+// Prisma Schema for Shipshape AI-Powered Full-Stack Application Builder
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  name      String
+  avatarUrl String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
+
+  @@map("users")
+}
+
+model Project {
+  id              String                 @id @default(uuid())
+  ownerUserId     String
+  name            String
+  description     String
+  status          String                 @default("draft") // draft, ready, generating, building, running, error, archived
+  activeVersionId String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  archivedAt      DateTime?
+  owner           User                   @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  specifications  ProjectSpecification[]
+  versions        ProjectVersion[]
+  files           ProjectFile[]
+  generationRuns  GenerationRun[]
+  sandboxSessions SandboxSession[]
+  previewSessions PreviewSession[]
+  assets          ProjectAsset[]
+  usageRecords    UsageRecord[]
+  auditEvents     AuditEvent[]
+
+  @@index([ownerUserId])
+  @@map("projects")
+}
+
+model ProjectSpecification {
+  id                String   @id @default(uuid())
+  projectId         String
+  versionNumber     Int      @default(1)
+  specificationJson String   // JSON serialized ProjectSpecification
+  planJson          String   // JSON serialized ApplicationPlan
+  schemaVersion     String   @default("1.0.0")
+  createdAt         DateTime @default(now())
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_specifications")
+}
+
+model ProjectVersion {
+  id                String          @id @default(uuid())
+  projectId         String
+  parentVersionId   String?
+  versionNumber     Int             @default(1)
+  sourceManifest    String          // JSON array of file paths and metadata
+  snapshotReference String?         // Reference or content hash
+  changeSummary     String?
+  validationStatus  String          @default("pending") // pending, passed, failed
+  createdAt         DateTime        @default(now())
+  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  files             ProjectFile[]
+  buildResults      BuildResult[]
+
+  @@index([projectId])
+  @@map("project_versions")
+}
+
+model ProjectFile {
+  id        String          @id @default(uuid())
+  projectId String
+  versionId String?
+  path      String          // Relative path in project, e.g. "src/app/page.tsx"
+  content   String          // Source code content
+  sizeBytes Int             @default(0)
+  mimeType  String          @default("text/plain")
+  updatedAt DateTime        @default(now())
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version   ProjectVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, versionId, path])
+  @@index([projectId, path])
+  @@map("project_files")
+}
+
+model GenerationRun {
+  id               String            @id @default(uuid())
+  projectId        String
+  baseVersionId    String?
+  resultVersionId  String?
+  runType          String            @default("generation") // generation, modification, repair
+  status           String            @default("queued") // queued, planning, generating, validating, installing, building, starting, preview_ready, repairing, completed, failed, cancelled
+  modelProvider    String            @default("deterministic") // gemini, openai, deterministic
+  modelIdentifier  String            @default("gemini-1.5-pro")
+  attemptCount     Int               @default(1)
+  prompt           String?
+  startedAt        DateTime          @default(now())
+  finishedAt       DateTime?
+  errorCode        String?
+  errorMessage     String?
+  usageMetadata    String?           // JSON
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  events           GenerationEvent[]
+  buildResults     BuildResult[]
+  buildLogs        BuildLog[]
+  usageRecords     UsageRecord[]
+
+  @@index([projectId])
+  @@map("generation_runs")
+}
+
+model GenerationEvent {
+  id              String        @id @default(uuid())
+  generationRunId String
+  sequenceNumber  Int
+  eventType       String        // step_started, step_completed, file_generated, log_output, error, preview_ready
+  message         String
+  metadata        String?       // JSON
+  createdAt       DateTime      @default(now())
+  generationRun   GenerationRun @relation(fields: [generationRunId], references: [id], onDelete: Cascade)
+
+  @@index([generationRunId, sequenceNumber])
+  @@map("generation_events")
+}
+
+model SandboxSession {
+  id                String           @id @default(uuid())
+  projectId         String
+  providerKey       String           @default("isolated_node") // isolated_node, docker, mock_cloud
+  externalSandboxId String?
+  status            String           @default("created") // created, starting, running, stopped, failed, expired
+  port              Int?
+  hostUrl           String?
+  workspaceDir      String?
+  pid               Int?
+  createdAt         DateTime         @default(now())
+  lastActivityAt    DateTime         @default(now())
+  expiresAt         DateTime?
+  terminatedAt      DateTime?
+  errorCode         String?
+  project           Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  previewSessions   PreviewSession[]
+
+  @@index([projectId])
+  @@map("sandbox_sessions")
+}
+
+model PreviewSession {
+  id               String         @id @default(uuid())
+  projectId        String
+  sandboxSessionId String
+  previewUrl       String
+  isolationOrigin  String         @default("sandbox")
+  status           String         @default("active") // active, terminated
+  createdAt        DateTime       @default(now())
+  expiresAt        DateTime?
+  project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sandboxSession   SandboxSession @relation(fields: [sandboxSessionId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("preview_sessions")
+}
+
+model BuildResult {
+  id               String          @id @default(uuid())
+  generationRunId  String
+  projectVersionId String?
+  checkType        String          // typecheck, lint, build, runtime_startup
+  status           String          // passed, failed, skipped
+  exitCode         Int             @default(0)
+  durationMs       Int             @default(0)
+  logReference     String?
+  createdAt        DateTime        @default(now())
+  generationRun    GenerationRun   @relation(fields: [generationRunId], references: [id], onDelete: Cascade)
+  projectVersion   ProjectVersion? @relation(fields: [projectVersionId], references: [id], onDelete: SetNull)
+
+  @@index([generationRunId])
+  @@map("build_results")
+}
+
+model BuildLog {
+  id              String        @id @default(uuid())
+  generationRunId String
+  streamType      String        @default("stdout") // stdout, stderr, system
+  content         String
+  timestamp       DateTime      @default(now())
+  generationRun   GenerationRun @relation(fields: [generationRunId], references: [id], onDelete: Cascade)
+
+  @@index([generationRunId])
+  @@map("build_logs")
+}
+
+model ProjectAsset {
+  id        String   @id @default(uuid())
+  projectId String
+  fileName  String
+  url       String
+  sizeBytes Int      @default(0)
+  mimeType  String   @default("application/octet-stream")
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_assets")
+}
+
+model ProviderConfiguration {
+  id           String   @id @default(uuid())
+  providerType String   // llm, sandbox, preview, export
+  name         String
+  isEnabled    Boolean  @default(true)
+  isDefault    Boolean  @default(false)
+  configJson   String   // Non-secret metadata & capabilities
+  createdAt    DateTime @default(now())
+
+  @@map("provider_configurations")
+}
+
+model UsageRecord {
+  id               String         @id @default(uuid())
+  projectId        String
+  generationRunId  String?
+  tokensUsed       Int            @default(0)
+  executionSeconds Float          @default(0.0)
+  storageBytes     Int            @default(0)
+  createdAt        DateTime       @default(now())
+  project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  generationRun    GenerationRun? @relation(fields: [generationRunId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@map("usage_records")
+}
+
+model AuditEvent {
+  id         String   @id @default(uuid())
+  userId     String?
+  projectId  String?
+  action     String   // project_created, version_restored, code_exported, runtime_started, runtime_stopped
+  metadata   String?  // JSON
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("audit_events")
+}
+
+model IdempotencyRecord {
+  id              String   @id @default(uuid())
+  idempotencyKey  String   @unique
+  responsePayload String   // Cached JSON response
+  status          String   @default("completed")
+  createdAt       DateTime @default(now())
+
+  @@map("idempotency_records")
+}
