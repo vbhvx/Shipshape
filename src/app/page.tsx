@@ -709,7 +709,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
       <footer className="border-t border-zinc-800/80 py-8 bg-zinc-950/80 text-xs text-zinc-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-zinc-200">Shipshape - Full-Stack Application Builder</span>
+            <span className="font-bold text-zinc-200">Shipshape - End to End Application Builder</span>
           </div>
           <div className="flex items-center gap-4 text-zinc-400">
             <a href="#simulator" className="hover:text-white transition">Simulator</a>
