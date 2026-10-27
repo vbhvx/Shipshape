@@ -55,7 +55,7 @@ export async function seedDemoProject(): Promise<void> {
     let changed = false;
     for (let i = 0; i < existingProjects.length; i++) {
       const p = existingProjects[i];
-      if (p.name.includes('TaskPilot') || p.name === 'TaskFlow Pro' || existingProjects.filter(ep => ep.name === p.name).length > 1) {
+      if (!p.id.startsWith('proj_integration_') && (p.name.includes('TaskPilot') || p.name === 'TaskFlow Pro' || existingProjects.filter(ep => !ep.id.startsWith('proj_integration_') && ep.name === p.name).length > 1)) {
         const seedDef = REAL_SHOWCASE_PROJECTS[i % REAL_SHOWCASE_PROJECTS.length];
         await db.updateProject(p.id, {
           name: seedDef.name,

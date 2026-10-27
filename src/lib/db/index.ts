@@ -90,9 +90,11 @@ async function ensureDataStore(): Promise<DatabaseStore> {
 async function saveStore(store: DatabaseStore): Promise<void> {
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
-    const tempFile = `${DATA_FILE}.${Date.now()}.tmp`;
+    const tempFile = `${DATA_FILE}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
     await fs.writeFile(tempFile, JSON.stringify(store, null, 2), 'utf-8');
     await fs.rename(tempFile, DATA_FILE);
+    const stat = await fs.stat(DATA_FILE);
+    lastMtime = stat.mtimeMs;
   } catch (err) {
     console.error('Failed to persist Shipshape store:', err);
   }

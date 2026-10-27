@@ -25,6 +25,7 @@ import {
   GitBranch,
   Copy,
   Check,
+  MessageSquare,
 } from 'lucide-react';
 
 export default function HomePage() {
@@ -202,18 +203,25 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
           <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-zinc-400">
             <a href="#simulator" className="hover:text-zinc-200 transition">Interactive Simulator</a>
             <a href="#features" className="hover:text-zinc-200 transition">Architecture</a>
-            <a href="#projects" className="hover:text-zinc-200 transition">Applications</a>
+            <Link
+              href="/applications"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-800/50 text-indigo-300 hover:text-white transition font-medium"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Applications</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-1.5 py-0.5 rounded-full border border-cyan-800/40">Chat</span>
+            </Link>
             <a href="#blueprints" className="hover:text-zinc-200 transition">Blueprints</a>
           </nav>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsModalOpen(true)}
+            <Link
+              href="/applications"
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Create Application</span>
-            </button>
+            </Link>
           </div>
         </div>
       </header>
@@ -241,13 +249,14 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
 
           {/* Action CTAs */}
           <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
-            <button
-              onClick={() => setIsModalOpen(true)}
+            <Link
+              href="/applications"
               className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-sm font-semibold shadow-xl shadow-indigo-600/30 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
             >
+              <MessageSquare className="w-4 h-4 text-indigo-200" />
               <span>Start Building Application</span>
               <ArrowRight className="w-4 h-4" />
-            </button>
+            </Link>
             <a
               href="#projects"
               className="w-full sm:w-auto px-6 py-3 rounded-xl bg-zinc-900/90 border border-zinc-800 hover:bg-zinc-800/90 text-zinc-300 hover:text-white text-sm font-semibold transition flex items-center justify-center gap-2"
@@ -537,13 +546,13 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
             <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Active Projects Workspace</h2>
             <p className="text-xs text-zinc-400">Launch into the deep-linkable IDE, inspect live previews, and export code.</p>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
+          <Link
+            href="/applications"
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition self-start sm:self-auto"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Application</span>
-          </button>
+          </Link>
         </div>
 
         {loading ? (
