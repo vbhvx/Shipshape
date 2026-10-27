@@ -178,7 +178,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500 selection:text-white bg-grid-pattern relative">
+    <div className="min-h-screen flex flex-col bg-zinc-950/70 text-zinc-100 font-sans selection:bg-indigo-500 selection:text-white bg-grid-crosshair relative">
       {/* Ambient Lighting Orbs */}
       <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-indigo-600/10 blur-[130px] pointer-events-none rounded-full" />
       <div className="absolute top-40 right-1/4 w-[500px] h-[350px] bg-cyan-500/10 blur-[120px] pointer-events-none rounded-full" />
