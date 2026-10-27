@@ -277,7 +277,7 @@ function WorkspaceContent({
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center space-y-3 text-zinc-400">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-zinc-300" />
         <div className="text-xs font-mono">Loading Shipshape Workspace...</div>
       </div>
     );
@@ -286,7 +286,7 @@ function WorkspaceContent({
   if (error || !project) {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <AlertCircle className="w-10 h-10 text-rose-500" />
+        <AlertCircle className="w-10 h-10 text-zinc-400" />
         <h2 className="text-lg font-bold text-zinc-100">Project Not Found</h2>
         <p className="text-xs text-zinc-400 max-w-sm">{error || 'Unable to load project workspace.'}</p>
         <button
@@ -323,34 +323,34 @@ function WorkspaceContent({
               onClick={() => setLeftTab('chat')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition ${
                 leftTab === 'chat'
-                  ? 'bg-zinc-800 text-indigo-400'
+                  ? 'bg-zinc-800 text-white font-semibold'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              <MessageSquare className="w-3.5 h-3.5" />
+              <MessageSquare className="w-3.5 h-3.5 text-zinc-300" />
               <span>Agent & Chat</span>
-              {isProcessing && <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping" />}
+              {isProcessing && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />}
             </button>
             <button
               onClick={() => setLeftTab('plan')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition ${
                 leftTab === 'plan'
-                  ? 'bg-zinc-800 text-indigo-400'
+                  ? 'bg-zinc-800 text-white font-semibold'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              <FileText className="w-3.5 h-3.5" />
+              <FileText className="w-3.5 h-3.5 text-zinc-300" />
               <span>Spec & Plan</span>
             </button>
             <button
               onClick={() => setLeftTab('versions')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition ${
                 leftTab === 'versions'
-                  ? 'bg-zinc-800 text-indigo-400'
+                  ? 'bg-zinc-800 text-white font-semibold'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              <History className="w-3.5 h-3.5" />
+              <History className="w-3.5 h-3.5 text-zinc-300" />
               <span>History & Diffs</span>
               <span className="text-[10px] font-mono text-zinc-500">({versions.length})</span>
             </button>
@@ -393,22 +393,22 @@ function WorkspaceContent({
                 onClick={() => setRightTab('preview')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition ${
                   rightTab === 'preview'
-                    ? 'bg-zinc-800 text-indigo-400'
+                    ? 'bg-zinc-800 text-white font-semibold'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                <Eye className="w-3.5 h-3.5" />
+                <Eye className="w-3.5 h-3.5 text-zinc-300" />
                 <span>Live Preview</span>
               </button>
               <button
                 onClick={() => setRightTab('code')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition ${
                   rightTab === 'code'
-                    ? 'bg-zinc-800 text-indigo-400'
+                    ? 'bg-zinc-800 text-white font-semibold'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                <Code2 className="w-3.5 h-3.5" />
+                <Code2 className="w-3.5 h-3.5 text-zinc-300" />
                 <span>Source Code</span>
                 <span className="text-[10px] font-mono text-zinc-500">({files.length})</span>
               </button>
@@ -416,11 +416,11 @@ function WorkspaceContent({
                 onClick={() => setRightTab('logs')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition ${
                   rightTab === 'logs'
-                    ? 'bg-zinc-800 text-indigo-400'
+                    ? 'bg-zinc-800 text-white font-semibold'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                <Terminal className="w-3.5 h-3.5" />
+                <Terminal className="w-3.5 h-3.5 text-zinc-300" />
                 <span>Diagnostics & Logs</span>
               </button>
             </div>
@@ -458,7 +458,7 @@ export default function WorkspacePage(props: { params: Promise<{ projectId: stri
     <Suspense
       fallback={
         <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center space-y-3 text-zinc-400">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-zinc-300" />
           <div className="text-xs font-mono">Loading Shipshape Workspace...</div>
         </div>
       }

@@ -67,7 +67,7 @@ export default function ExplorePage() {
 }`,
       diffCode: `@@ -12,4 +12,6 @@
 - <div className="text-zinc-400">All Items</div>
-+ <div className="text-indigo-400 font-bold">Filtered Active Items</div>
++ <div className="text-zinc-200 font-bold">Filtered Active Items</div>
 + <span className="badge-urgent">High Priority Only</span>`,
     },
     {
@@ -104,7 +104,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
   return (
     <div className="p-4 bg-zinc-900 border-l border-zinc-800">
       <h2 className="text-lg font-bold">Your Bag ({items.length})</h2>
-      <div className="font-mono text-emerald-400">\${subtotal.toFixed(2)}</div>
+      <div className="font-mono text-zinc-200">\${subtotal.toFixed(2)}</div>
       <button onClick={onCheckout} className="w-full btn-checkout">Proceed to Checkout</button>
     </div>
   );
@@ -136,34 +136,38 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
     loadProjects();
   }, []);
 
-  const handleExportZip = async (projectId: string, name: string) => {
+  const handleDeleteProject = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this project?')) return;
     try {
-      setExportingId(projectId);
-      const res = await fetch(`/api/v1/projects/${projectId}/export`);
+      const res = await fetch(`/api/v1/projects/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        setProjects((prev) => prev.filter((p) => p.id !== id));
+      }
+    } catch (err) {
+      console.error('Failed to delete project:', err);
+    }
+  };
+
+  const handleExportZip = async (id: string, name: string) => {
+    try {
+      setExportingId(id);
+      const res = await fetch(`/api/v1/projects/${id}/export`);
       if (!res.ok) throw new Error('Export failed');
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${name.toLowerCase().replace(/\s+/g, '-')}-archive.zip`;
+      a.download = `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-source.zip`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (err: any) {
-      alert(`Export failed: ${err.message}`);
+    } catch (err) {
+      console.error('Failed to download source:', err);
+      alert('Failed to download project source code');
     } finally {
       setExportingId(null);
-    }
-  };
-
-  const handleDeleteProject = async (projectId: string) => {
-    if (!confirm('Are you sure you want to archive this project?')) return;
-    try {
-      await fetch(`/api/v1/projects/${projectId}`, { method: 'DELETE' });
-      await loadProjects();
-    } catch (err: any) {
-      alert(`Delete failed: ${err.message}`);
     }
   };
 
@@ -179,47 +183,47 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-950/70 text-zinc-100 font-sans selection:bg-indigo-500 selection:text-white bg-grid-crosshair relative">
-      {/* Ambient Lighting Orbs */}
-      <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-indigo-600/10 blur-[130px] pointer-events-none rounded-full" />
-      <div className="absolute top-40 right-1/4 w-[500px] h-[350px] bg-cyan-500/10 blur-[120px] pointer-events-none rounded-full" />
+    <div className="min-h-screen flex flex-col bg-zinc-950/80 text-zinc-100 font-sans selection:bg-zinc-200 selection:text-black bg-grid-crosshair relative">
+      {/* Ambient Lighting Orbs - Monochrome Silver & White */}
+      <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-white/[0.04] blur-[150px] pointer-events-none rounded-full" />
+      <div className="absolute top-40 right-1/4 w-[500px] h-[350px] bg-zinc-500/[0.04] blur-[140px] pointer-events-none rounded-full" />
 
       {/* Top Navigation */}
-      <header className="h-16 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur sticky top-0 z-40">
+      <header className="h-16 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-600/30">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-white via-zinc-200 to-zinc-400 flex items-center justify-center font-bold text-black shadow-lg shadow-white/10">
               S
             </div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-zinc-100 tracking-tight text-base">Shipshape</span>
-              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-indigo-300 font-mono uppercase bg-indigo-950/80 border border-indigo-800/60 px-2 py-0.5 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] text-zinc-300 font-mono uppercase bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                 Next.js App Builder
               </span>
             </div>
           </div>
 
           <nav className="hidden md:flex items-center gap-6 text-xs font-medium text-zinc-400">
-            <a href="#simulator" className="hover:text-zinc-200 transition">Interactive Simulator</a>
-            <a href="#features" className="hover:text-zinc-200 transition">Architecture</a>
+            <a href="#simulator" className="hover:text-zinc-100 transition">Interactive Simulator</a>
+            <a href="#features" className="hover:text-zinc-100 transition">Architecture</a>
             <Link
               href="/applications"
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-800/50 text-indigo-300 hover:text-white transition font-medium"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/60 text-zinc-200 hover:text-white transition font-medium"
             >
-              <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+              <MessageSquare className="w-3.5 h-3.5 text-zinc-300" />
               <span>Applications</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-1.5 py-0.5 rounded-full border border-cyan-800/40">Chat</span>
+              <span className="text-[10px] font-mono text-zinc-300 bg-zinc-800 px-1.5 py-0.5 rounded-full border border-zinc-700">Chat</span>
             </Link>
-            <a href="#blueprints" className="hover:text-zinc-200 transition">Blueprints</a>
+            <a href="#blueprints" className="hover:text-zinc-100 transition">Blueprints</a>
           </nav>
 
           <div className="flex items-center gap-3">
             <Link
               href="/applications"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold shadow-lg shadow-white/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 text-black" />
               <span>Create Application</span>
             </Link>
           </div>
@@ -229,15 +233,15 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
       {/* Hero Section */}
       <section className="relative overflow-hidden py-16 sm:py-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto space-y-8 text-center sm:text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-zinc-900/90 text-indigo-300 border border-indigo-500/30 shadow-md backdrop-blur">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-zinc-900/90 text-zinc-300 border border-zinc-700/60 shadow-md backdrop-blur">
+            <Sparkles className="w-3.5 h-3.5 text-zinc-300 animate-pulse" />
             <span className="font-semibold text-zinc-200">Autonomous Code Generation · Sandboxes · Live Preview</span>
           </div>
 
           <div className="space-y-4 max-w-4xl">
             <h1 className="text-4xl sm:text-6xl font-black text-white tracking-tight leading-[1.1]">
               From Plain Language to{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-300 to-cyan-400">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-400">
                 Executable, Inspectable
               </span>{' '}
               Next.js Software.
@@ -251,17 +255,17 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
           <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
             <Link
               href="/applications"
-              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-sm font-semibold shadow-xl shadow-indigo-600/30 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white hover:bg-zinc-200 text-black text-sm font-semibold shadow-xl shadow-white/10 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              <MessageSquare className="w-4 h-4 text-indigo-200" />
+              <MessageSquare className="w-4 h-4 text-black" />
               <span>Start Building Application</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 text-black" />
             </Link>
             <a
               href="#projects"
               className="w-full sm:w-auto px-6 py-3 rounded-xl bg-zinc-900/90 border border-zinc-800 hover:bg-zinc-800/90 text-zinc-300 hover:text-white text-sm font-semibold transition flex items-center justify-center gap-2"
             >
-              <Eye className="w-4 h-4 text-cyan-400" />
+              <Eye className="w-4 h-4 text-zinc-400" />
               <span>Explore Live Showcase</span>
             </a>
           </div>
@@ -273,15 +277,15 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
               <div className="text-xs text-zinc-500">TypeScript Type-Safe</div>
             </div>
             <div className="space-y-1">
-              <div className="text-xl sm:text-2xl font-black text-indigo-400 font-mono">&lt; 500ms</div>
+              <div className="text-xl sm:text-2xl font-black text-zinc-200 font-mono">&lt; 500ms</div>
               <div className="text-xs text-zinc-500">Turbopack Fast Builds</div>
             </div>
             <div className="space-y-1">
-              <div className="text-xl sm:text-2xl font-black text-cyan-400 font-mono">Isolated</div>
+              <div className="text-xl sm:text-2xl font-black text-zinc-200 font-mono">Isolated</div>
               <div className="text-xs text-zinc-500">Port & Sandbox Runtime</div>
             </div>
             <div className="space-y-1">
-              <div className="text-xl sm:text-2xl font-black text-emerald-400 font-mono">Zero</div>
+              <div className="text-xl sm:text-2xl font-black text-zinc-200 font-mono">Zero</div>
               <div className="text-xs text-zinc-500">Platform Lock-In (.zip)</div>
             </div>
           </div>
@@ -293,8 +297,8 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
         <div className="p-6 sm:p-8 rounded-3xl bg-zinc-900/80 border border-zinc-800/90 shadow-2xl backdrop-blur space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-indigo-400 mb-1">
-                <Terminal className="w-3.5 h-3.5" />
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                <Terminal className="w-3.5 h-3.5 text-zinc-300" />
                 <span>Interactive Live Pipeline Simulator</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
@@ -310,7 +314,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
                   onClick={() => setActivePresetIndex(idx)}
                   className={`px-3 py-1.5 rounded-lg font-medium transition ${
                     activePresetIndex === idx
-                      ? 'bg-indigo-600 text-white shadow'
+                      ? 'bg-white text-black font-semibold shadow'
                       : 'text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
@@ -325,9 +329,9 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
             {/* Window Titlebar */}
             <div className="px-4 py-3 border-b border-zinc-800/80 bg-zinc-900/70 flex items-center justify-between select-none">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-rose-500/80" />
-                <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-                <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
+                <div className="w-3 h-3 rounded-full bg-zinc-700" />
+                <div className="w-3 h-3 rounded-full bg-zinc-600" />
+                <div className="w-3 h-3 rounded-full bg-zinc-500" />
                 <span className="text-xs font-mono text-zinc-400 ml-2">shipshape-engine v2.0 • {currentPreset.name}</span>
               </div>
 
@@ -336,7 +340,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
                 <button
                   onClick={() => setSimulatorTab('prompt')}
                   className={`px-2.5 py-1 rounded transition ${
-                    simulatorTab === 'prompt' ? 'bg-zinc-800 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'
+                    simulatorTab === 'prompt' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-500 hover:text-zinc-300'
                   }`}
                 >
                   1. Intent Prompt
@@ -344,7 +348,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
                 <button
                   onClick={() => setSimulatorTab('plan')}
                   className={`px-2.5 py-1 rounded transition ${
-                    simulatorTab === 'plan' ? 'bg-zinc-800 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'
+                    simulatorTab === 'plan' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-500 hover:text-zinc-300'
                   }`}
                 >
                   2. Structured Spec
@@ -352,7 +356,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
                 <button
                   onClick={() => setSimulatorTab('code')}
                   className={`px-2.5 py-1 rounded transition ${
-                    simulatorTab === 'code' ? 'bg-zinc-800 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'
+                    simulatorTab === 'code' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-500 hover:text-zinc-300'
                   }`}
                 >
                   3. Generated Code
@@ -360,7 +364,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
                 <button
                   onClick={() => setSimulatorTab('diff')}
                   className={`px-2.5 py-1 rounded transition ${
-                    simulatorTab === 'diff' ? 'bg-zinc-800 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'
+                    simulatorTab === 'diff' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-500 hover:text-zinc-300'
                   }`}
                 >
                   4. Version Diff
@@ -379,7 +383,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
                     &ldquo;{currentPreset.prompt}&rdquo;
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-zinc-400 font-sans">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                     <span>Interprets requirements ➔ Extracts data entities & routes ➔ Builds coherent manifest</span>
                   </div>
                 </div>
@@ -389,12 +393,12 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
                 <div className="space-y-3 font-sans">
                   <div className="flex items-center justify-between text-zinc-400 text-xs">
                     <span>Target Framework: Next.js 14+ App Router</span>
-                    <span className="text-emerald-400 font-mono">Status: Plan Validated</span>
+                    <span className="text-zinc-200 font-mono font-medium">Status: Plan Validated</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-1">
                       <div className="font-semibold text-zinc-200">Planned Routes ({currentPreset.routes.length})</div>
-                      <div className="font-mono text-[11px] text-indigo-400">
+                      <div className="font-mono text-[11px] text-zinc-300">
                         {currentPreset.routes.join(' • ')}
                       </div>
                     </div>
@@ -416,7 +420,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
                       onClick={copySimulatedCode}
                       className="flex items-center gap-1 text-[11px] hover:text-white transition"
                     >
-                      {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedCode ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5 text-zinc-400" />}
                       <span>{copiedCode ? 'Copied' : 'Copy'}</span>
                     </button>
                   </div>
@@ -430,7 +434,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-zinc-400 text-xs">
                     <span>Targeted Patch: Iterative Edit (v1 ➔ v2)</span>
-                    <span className="text-emerald-400 font-mono">+2 additions, -1 deletions</span>
+                    <span className="text-zinc-200 font-mono">+2 additions, -1 deletions</span>
                   </div>
                   <pre className="p-4 rounded-xl bg-zinc-900/90 border border-zinc-800 text-zinc-200 overflow-x-auto text-[11px] leading-relaxed">
                     {currentPreset.diffCode}
@@ -443,13 +447,13 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
                 <span className="text-[11px] text-zinc-500 font-sans">
                   Ready to test with your own requirements?
                 </span>
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow transition flex items-center gap-1.5"
+                <Link
+                  href="/applications"
+                  className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-semibold shadow transition flex items-center gap-1.5"
                 >
                   <span>Launch in Workspace</span>
-                  <ArrowRight className="w-3 h-3" />
-                </button>
+                  <ArrowRight className="w-3 h-3 text-black" />
+                </Link>
               </div>
             </div>
           </div>
@@ -459,7 +463,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
       {/* Bento Grid Architecture Features */}
       <section id="features" className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-8">
         <div className="text-center max-w-3xl mx-auto space-y-3">
-          <div className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
+          <div className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
             Engineered for Precision
           </div>
           <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
@@ -473,8 +477,8 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Card 1 */}
           <div className="p-6 rounded-2xl bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700 transition space-y-4">
-            <div className="w-10 h-10 rounded-xl bg-indigo-950 text-indigo-400 flex items-center justify-center font-bold">
-              <Cpu className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 flex items-center justify-center font-bold">
+              <Cpu className="w-5 h-5 text-white" />
             </div>
             <h3 className="text-base font-bold text-white">Natural-Language Planning</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
@@ -484,8 +488,8 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
 
           {/* Card 2 */}
           <div className="p-6 rounded-2xl bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700 transition space-y-4">
-            <div className="w-10 h-10 rounded-xl bg-cyan-950 text-cyan-400 flex items-center justify-center font-bold">
-              <FolderGit2 className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 flex items-center justify-center font-bold">
+              <FolderGit2 className="w-5 h-5 text-white" />
             </div>
             <h3 className="text-base font-bold text-white">Multi-File Next.js Synthesis</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
@@ -495,8 +499,8 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
 
           {/* Card 3 */}
           <div className="p-6 rounded-2xl bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700 transition space-y-4">
-            <div className="w-10 h-10 rounded-xl bg-emerald-950 text-emerald-400 flex items-center justify-center font-bold">
-              <Server className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 flex items-center justify-center font-bold">
+              <Server className="w-5 h-5 text-white" />
             </div>
             <h3 className="text-base font-bold text-white">Isolated Sandbox Runtime</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
@@ -506,8 +510,8 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
 
           {/* Card 4 */}
           <div className="p-6 rounded-2xl bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700 transition space-y-4">
-            <div className="w-10 h-10 rounded-xl bg-amber-950 text-amber-400 flex items-center justify-center font-bold">
-              <RotateCw className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 flex items-center justify-center font-bold">
+              <RotateCw className="w-5 h-5 text-white" />
             </div>
             <h3 className="text-base font-bold text-white">Bounded Agent Repair Loop</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
@@ -517,8 +521,8 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
 
           {/* Card 5 */}
           <div className="p-6 rounded-2xl bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700 transition space-y-4">
-            <div className="w-10 h-10 rounded-xl bg-purple-950 text-purple-400 flex items-center justify-center font-bold">
-              <GitBranch className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 flex items-center justify-center font-bold">
+              <GitBranch className="w-5 h-5 text-white" />
             </div>
             <h3 className="text-base font-bold text-white">Structured Version Diffs</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
@@ -528,8 +532,8 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
 
           {/* Card 6 */}
           <div className="p-6 rounded-2xl bg-zinc-900/70 border border-zinc-800 hover:border-zinc-700 transition space-y-4">
-            <div className="w-10 h-10 rounded-xl bg-rose-950 text-rose-400 flex items-center justify-center font-bold">
-              <Download className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 flex items-center justify-center font-bold">
+              <Download className="w-5 h-5 text-white" />
             </div>
             <h3 className="text-base font-bold text-white">Zero Lock-In Source Export</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
@@ -548,21 +552,21 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
           </div>
           <Link
             href="/applications"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition self-start sm:self-auto"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold shadow-lg shadow-white/10 transition self-start sm:self-auto"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5 text-black" />
             <span>New Application</span>
           </Link>
         </div>
 
         {loading ? (
           <div className="p-12 text-center text-zinc-500 space-y-2">
-            <Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-500" />
+            <Loader2 className="w-6 h-6 animate-spin mx-auto text-zinc-400" />
             <div className="text-xs font-mono">Loading projects...</div>
           </div>
         ) : projects.length === 0 ? (
           <div className="p-12 rounded-3xl bg-zinc-900/60 border border-zinc-800 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center mx-auto text-xl font-bold">
+            <div className="w-12 h-12 rounded-2xl bg-zinc-900 text-zinc-200 border border-zinc-700 flex items-center justify-center mx-auto text-xl font-bold">
               ⚡
             </div>
             <div>
@@ -571,24 +575,24 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
                 Start by describing an idea or picking a tested template. Shipshape will generate the codebase and start the isolated preview.
               </p>
             </div>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition"
+            <Link
+              href="/applications"
+              className="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold shadow-lg shadow-white/10 transition inline-block"
             >
               Create First Application
-            </button>
+            </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((p) => (
               <div
                 key={p.id}
-                className="rounded-2xl bg-zinc-900/90 border border-zinc-800/90 p-5 space-y-4 hover:border-indigo-500/60 transition-all flex flex-col justify-between group shadow-xl hover:shadow-indigo-500/5"
+                className="rounded-2xl bg-zinc-900/90 border border-zinc-800/90 p-5 space-y-4 hover:border-zinc-600 transition-all flex flex-col justify-between group shadow-xl"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-950 text-zinc-300 border border-zinc-800">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                       {p.status.toUpperCase()}
                     </span>
                     <span className="text-[10px] text-zinc-500 font-mono">
@@ -596,7 +600,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
                     </span>
                   </div>
 
-                  <h3 className="text-base font-bold text-zinc-100 group-hover:text-indigo-400 transition">
+                  <h3 className="text-base font-bold text-zinc-100 group-hover:text-white transition">
                     {p.name}
                   </h3>
                   <p className="text-xs text-zinc-400 line-clamp-3 leading-relaxed">
@@ -625,10 +629,10 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
 
                   <Link
                     href={`/workspace/${p.id}`}
-                    className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition flex items-center gap-1.5"
+                    className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-semibold shadow-md shadow-white/10 transition flex items-center gap-1.5"
                   >
                     <span>Open Workspace</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <ArrowRight className="w-3.5 h-3.5 text-black" />
                   </Link>
                 </div>
               </div>
@@ -640,7 +644,7 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
       {/* Blueprint Launchers */}
       <section id="blueprints" className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-amber-400 mb-1">
+          <div className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
             Pre-Tested Blueprints
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
@@ -652,65 +656,65 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 hover:border-indigo-500/80 text-left transition group space-y-3"
+          <Link
+            href="/applications"
+            className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 hover:border-zinc-600 text-left transition group space-y-3"
           >
-            <div className="w-9 h-9 rounded-xl bg-indigo-950 text-indigo-400 flex items-center justify-center">
-              <Layout className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 flex items-center justify-center">
+              <Layout className="w-4 h-4 text-white" />
             </div>
-            <div className="font-semibold text-xs text-zinc-100 group-hover:text-indigo-400">
+            <div className="font-semibold text-xs text-zinc-100 group-hover:text-white">
               SaaS Kanban Sprint Board
             </div>
             <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
               Drag-and-drop workflow, task priorities, status metrics, and CSV export.
             </p>
-          </button>
+          </Link>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 hover:border-indigo-500/80 text-left transition group space-y-3"
+          <Link
+            href="/applications"
+            className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 hover:border-zinc-600 text-left transition group space-y-3"
           >
-            <div className="w-9 h-9 rounded-xl bg-cyan-950 text-cyan-400 flex items-center justify-center">
-              <BarChart3 className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 flex items-center justify-center">
+              <BarChart3 className="w-4 h-4 text-white" />
             </div>
-            <div className="font-semibold text-xs text-zinc-100 group-hover:text-indigo-400">
+            <div className="font-semibold text-xs text-zinc-100 group-hover:text-white">
               AI Analytics & Forecasts
             </div>
             <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
               Dynamic KPI metric distribution, historical charts, and trend insights.
             </p>
-          </button>
+          </Link>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 hover:border-indigo-500/80 text-left transition group space-y-3"
+          <Link
+            href="/applications"
+            className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 hover:border-zinc-600 text-left transition group space-y-3"
           >
-            <div className="w-9 h-9 rounded-xl bg-emerald-950 text-emerald-400 flex items-center justify-center">
-              <ShoppingBag className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 flex items-center justify-center">
+              <ShoppingBag className="w-4 h-4 text-white" />
             </div>
-            <div className="font-semibold text-xs text-zinc-100 group-hover:text-indigo-400">
+            <div className="font-semibold text-xs text-zinc-100 group-hover:text-white">
               Modern E-Commerce Store
             </div>
             <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
               Filterable catalog, shopping cart calculation, inventory, and checkout.
             </p>
-          </button>
+          </Link>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 hover:border-indigo-500/80 text-left transition group space-y-3"
+          <Link
+            href="/applications"
+            className="p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 hover:border-zinc-600 text-left transition group space-y-3"
           >
-            <div className="w-9 h-9 rounded-xl bg-amber-950 text-amber-400 flex items-center justify-center">
-              <Users className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 flex items-center justify-center">
+              <Users className="w-4 h-4 text-white" />
             </div>
-            <div className="font-semibold text-xs text-zinc-100 group-hover:text-indigo-400">
+            <div className="font-semibold text-xs text-zinc-100 group-hover:text-white">
               Customer Deal CRM
             </div>
             <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
               Pipeline stages, lead contacts, activity tracking, and revenue overview.
             </p>
-          </button>
+          </Link>
         </div>
       </section>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { ProjectSpecification } from '@/types';
 import { FileText, CheckCircle2, ShieldCheck, Database, Layout, Sparkles } from 'lucide-react';
 
@@ -22,8 +22,8 @@ export default function PlanSpecPanel({ specification }: PlanSpecPanelProps) {
     <div className="h-full overflow-y-auto p-5 space-y-6 text-xs text-zinc-300">
       {/* Title & Overview */}
       <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 space-y-2">
-        <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm">
-          <FileText className="w-4 h-4" />
+        <div className="flex items-center gap-2 text-zinc-100 font-semibold text-sm">
+          <FileText className="w-4 h-4 text-zinc-300" />
           <span>Project Specification (v{specification.versionNumber})</span>
         </div>
         <p className="text-zinc-400 leading-relaxed">{specification.description}</p>
@@ -39,14 +39,14 @@ export default function PlanSpecPanel({ specification }: PlanSpecPanelProps) {
       {/* Routes */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 font-semibold text-zinc-200">
-          <Layout className="w-4 h-4 text-cyan-400" />
+          <Layout className="w-4 h-4 text-zinc-300" />
           <span>Planned Application Routes</span>
         </div>
         <div className="space-y-2">
           {specification.routes?.map((route) => (
             <div key={route.path} className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-1">
               <div className="flex items-center justify-between">
-                <span className="font-mono text-indigo-400 font-medium">{route.path}</span>
+                <span className="font-mono text-zinc-200 font-medium">{route.path}</span>
                 <span className="text-[11px] text-zinc-400">{route.name}</span>
               </div>
               <p className="text-[11px] text-zinc-500">{route.description}</p>
@@ -58,13 +58,13 @@ export default function PlanSpecPanel({ specification }: PlanSpecPanelProps) {
       {/* Core Features */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 font-semibold text-zinc-200">
-          <Sparkles className="w-4 h-4 text-amber-400" />
+          <Sparkles className="w-4 h-4 text-zinc-300" />
           <span>Features & Workflows</span>
         </div>
         <div className="space-y-2">
           {specification.features?.map((feat) => (
             <div key={feat.id} className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 flex items-start gap-2.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-zinc-300 mt-0.5 shrink-0" />
               <div>
                 <div className="font-medium text-zinc-200">{feat.name}</div>
                 <div className="text-[11px] text-zinc-500 mt-0.5">{feat.description}</div>
@@ -77,7 +77,7 @@ export default function PlanSpecPanel({ specification }: PlanSpecPanelProps) {
       {/* Data Model */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 font-semibold text-zinc-200">
-          <Database className="w-4 h-4 text-violet-400" />
+          <Database className="w-4 h-4 text-zinc-300" />
           <span>Data Model Entities</span>
         </div>
         <div className="space-y-2">
@@ -99,7 +99,7 @@ export default function PlanSpecPanel({ specification }: PlanSpecPanelProps) {
       {/* Acceptance Criteria */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 font-semibold text-zinc-200">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          <ShieldCheck className="w-4 h-4 text-zinc-300" />
           <span>Acceptance Criteria</span>
         </div>
         <ul className="space-y-1.5 list-disc list-inside text-[11px] text-zinc-400 pl-1">

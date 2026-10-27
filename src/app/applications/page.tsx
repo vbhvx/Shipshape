@@ -47,25 +47,25 @@ export default function ApplicationsChatPage() {
   const quickStarters = [
     {
       title: 'Kanban Sprint Board',
-      icon: <Layout className="w-4 h-4 text-indigo-400" />,
+      icon: <Layout className="w-4 h-4 text-white" />,
       name: 'SprintFlow Kanban',
       prompt: 'Build a high-performance Kanban and sprint task management application with drag-and-drop workflow columns, priority tagging, status metrics, dark mode, real-time client persistence, and CSV export.',
     },
     {
       title: 'AI Analytics & Latency Telemetry',
-      icon: <BarChart3 className="w-4 h-4 text-cyan-400" />,
+      icon: <BarChart3 className="w-4 h-4 text-white" />,
       name: 'PulseMetrics Observability',
       prompt: 'Create an AI inference and KPI analytics dashboard with dynamic progress breakdown bars, model accuracy charts, latency monitoring, and CSV reporting.',
     },
     {
       title: 'Luxury Boutique E-Commerce Store',
-      icon: <ShoppingBag className="w-4 h-4 text-emerald-400" />,
+      icon: <ShoppingBag className="w-4 h-4 text-white" />,
       name: 'Velour Fragrance Store',
       prompt: 'Design a modern luxury boutique catalog with interactive product filtering, shopping cart drawer with live subtotal calculation, inventory stock tracking, and checkout simulation.',
     },
     {
       title: 'Venture Capital Deal CRM',
-      icon: <Users className="w-4 h-4 text-amber-400" />,
+      icon: <Users className="w-4 h-4 text-white" />,
       name: 'Veloce Deal Pipeline',
       prompt: 'Build an early-stage venture capital deal pipeline CRM tracking startup funding rounds, syndicate partners, founder evaluation notes, valuation metrics, and portfolio ROI.',
     },
@@ -204,13 +204,13 @@ export default function ApplicationsChatPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100 font-sans selection:bg-indigo-500 selection:text-white bg-grid-crosshair relative">
-      {/* Ambient Lighting Orbs */}
-      <div className="absolute top-0 left-1/3 w-[600px] h-[380px] bg-indigo-600/15 blur-[140px] pointer-events-none rounded-full" />
-      <div className="absolute top-60 right-1/4 w-[500px] h-[320px] bg-cyan-500/10 blur-[130px] pointer-events-none rounded-full" />
+    <div className="min-h-screen flex flex-col bg-zinc-950/80 text-zinc-100 font-sans selection:bg-zinc-200 selection:text-black bg-grid-crosshair relative">
+      {/* Ambient Lighting Orbs - Monochrome Silver & White */}
+      <div className="absolute top-0 left-1/3 w-[600px] h-[380px] bg-white/[0.04] blur-[150px] pointer-events-none rounded-full" />
+      <div className="absolute top-60 right-1/4 w-[500px] h-[320px] bg-zinc-500/[0.04] blur-[140px] pointer-events-none rounded-full" />
 
       {/* Top Header */}
-      <header className="h-16 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur sticky top-0 z-40">
+      <header className="h-16 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
@@ -224,7 +224,7 @@ export default function ApplicationsChatPage() {
             <div className="h-4 w-px bg-zinc-800 hidden sm:block" />
 
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center font-bold text-white text-xs shadow-md shadow-indigo-600/30">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-white via-zinc-200 to-zinc-400 flex items-center justify-center font-bold text-black text-xs shadow-md shadow-white/10">
                 S
               </div>
               <div>
@@ -237,13 +237,13 @@ export default function ApplicationsChatPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-indigo-950/60 text-indigo-300 border border-indigo-800/50">
-              <MessageSquare className="w-3 h-3 text-indigo-400" />
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-zinc-900 text-zinc-300 border border-zinc-800">
+              <MessageSquare className="w-3 h-3 text-zinc-400" />
               <span>Conversational Builder</span>
             </div>
 
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 text-zinc-200 border border-zinc-700/80">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
               AI Agent Ready
             </span>
           </div>
@@ -256,17 +256,17 @@ export default function ApplicationsChatPage() {
         <div className="space-y-6">
           {/* Greeting Hero Message Bubble */}
           <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-600/30 font-bold">
-              <Bot className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white shrink-0 shadow-lg font-bold">
+              <Bot className="w-5 h-5 text-zinc-100" />
             </div>
             <div className="space-y-3 max-w-2xl w-full">
               <div className="p-5 sm:p-6 rounded-2xl bg-zinc-900/90 border border-zinc-800 shadow-xl space-y-3 backdrop-blur">
                 <div className="flex items-center justify-between text-xs text-zinc-500">
-                  <span className="font-semibold text-indigo-400 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" />
+                  <span className="font-semibold text-zinc-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-zinc-300" />
                     Shipshape Autonomous Agent
                   </span>
-                  <span className="font-mono text-[11px]">Next.js 16 • React 19</span>
+                  <span className="font-mono text-[11px] text-zinc-400">Next.js 16 • React 19</span>
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
@@ -281,15 +281,15 @@ export default function ApplicationsChatPage() {
 
                 <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-800/80 text-[11px] text-zinc-400">
                   <span className="inline-flex items-center gap-1 text-zinc-300">
-                    <Zap className="w-3 h-3 text-amber-400" /> Instant Sandbox
+                    <Zap className="w-3 h-3 text-zinc-300" /> Instant Sandbox
                   </span>
                   <span>•</span>
                   <span className="inline-flex items-center gap-1 text-zinc-300">
-                    <Code2 className="w-3 h-3 text-cyan-400" /> Full Source Code
+                    <Code2 className="w-3 h-3 text-zinc-300" /> Full Source Code
                   </span>
                   <span>•</span>
                   <span className="inline-flex items-center gap-1 text-zinc-300">
-                    <Download className="w-3 h-3 text-emerald-400" /> Zip Export
+                    <Download className="w-3 h-3 text-zinc-300" /> Zip Export
                   </span>
                 </div>
               </div>
@@ -308,9 +308,9 @@ export default function ApplicationsChatPage() {
                   key={starter.title}
                   type="button"
                   onClick={() => handleSelectStarter(starter)}
-                  className="p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800/90 hover:border-indigo-500/80 hover:bg-zinc-800/60 text-left transition group shadow-md flex flex-col justify-between"
+                  className="p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800/90 hover:border-zinc-500 hover:bg-zinc-800/60 text-left transition group shadow-md flex flex-col justify-between"
                 >
-                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200 group-hover:text-indigo-400">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200 group-hover:text-white">
                     {starter.icon}
                     <span>{starter.title}</span>
                   </div>
@@ -331,21 +331,21 @@ export default function ApplicationsChatPage() {
               }`}
             >
               {msg.role === 'assistant' && (
-                <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shrink-0 shadow-md">
-                  <Bot className="w-4 h-4" />
+                <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-700 flex items-center justify-center text-white shrink-0 shadow-md">
+                  <Bot className="w-4 h-4 text-zinc-200" />
                 </div>
               )}
               <div
                 className={`p-4 rounded-2xl max-w-xl text-xs sm:text-sm leading-relaxed shadow-lg ${
                   msg.role === 'user'
-                    ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white rounded-tr-none font-medium'
+                    ? 'bg-white text-black rounded-tr-none font-medium'
                     : 'bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-tl-none space-y-2'
                 }`}
               >
                 <div>{msg.text}</div>
                 {msg.step && (
-                  <div className="flex items-center gap-2 pt-2 border-t border-zinc-800/80 text-xs text-indigo-400 font-mono">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <div className="flex items-center gap-2 pt-2 border-t border-zinc-800/80 text-xs text-zinc-400 font-mono">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
                     <span>{msg.step}</span>
                   </div>
                 )}
@@ -357,9 +357,9 @@ export default function ApplicationsChatPage() {
         {/* Floating Conversational Input Form */}
         <div className="space-y-4 pt-4 sticky bottom-4">
           {error && (
-            <div className="p-3 rounded-xl bg-rose-950/70 border border-rose-800 text-rose-300 text-xs flex items-center justify-between">
+            <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs flex items-center justify-between">
               <span>{error}</span>
-              <button onClick={() => setError('')} className="text-rose-400 hover:text-rose-200 text-xs">
+              <button onClick={() => setError('')} className="text-zinc-400 hover:text-white text-xs">
                 Dismiss
               </button>
             </div>
@@ -377,7 +377,7 @@ export default function ApplicationsChatPage() {
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
                 placeholder="e.g. PulseMetrics Platform (optional)"
-                className="w-full bg-zinc-950 border border-zinc-800/80 rounded-lg px-2.5 py-1 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-indigo-500 transition"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition"
               />
             </div>
 
@@ -391,7 +391,7 @@ export default function ApplicationsChatPage() {
                 onKeyDown={handleKeyDown}
                 disabled={isSubmitting}
                 placeholder="What are we building today? Describe your requirements, user roles, pages, data fields, and workflow... (Press Enter to submit)"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3.5 text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3.5 text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-400 resize-none leading-relaxed"
               />
             </div>
 
@@ -409,17 +409,17 @@ export default function ApplicationsChatPage() {
               <button
                 type="submit"
                 disabled={!prompt.trim() || isSubmitting}
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2 disabled:opacity-40"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold shadow-lg shadow-white/10 transition flex items-center justify-center gap-2 disabled:opacity-40"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
                     <span>Synthesizing Codebase...</span>
                   </>
                 ) : (
                   <>
                     <span>Generate & Launch Live Preview</span>
-                    <Send className="w-3.5 h-3.5" />
+                    <Send className="w-3.5 h-3.5 text-black" />
                   </>
                 )}
               </button>
@@ -431,7 +431,7 @@ export default function ApplicationsChatPage() {
         <div className="pt-8 border-t border-zinc-800/80 space-y-4">
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-zinc-200 flex items-center gap-1.5">
-              <FolderGit2 className="w-4 h-4 text-indigo-400" />
+              <FolderGit2 className="w-4 h-4 text-zinc-300" />
               Active Applications Workspace
             </span>
             <span className="text-zinc-500 font-mono">
@@ -441,7 +441,7 @@ export default function ApplicationsChatPage() {
 
           {loadingProjects ? (
             <div className="p-8 text-center text-zinc-500 space-y-2">
-              <Loader2 className="w-5 h-5 animate-spin mx-auto text-indigo-500" />
+              <Loader2 className="w-5 h-5 animate-spin mx-auto text-zinc-400" />
               <div className="text-xs font-mono">Loading active applications...</div>
             </div>
           ) : projects.length === 0 ? (
@@ -454,12 +454,12 @@ export default function ApplicationsChatPage() {
                 <div
                   key={p.id}
                   onClick={() => router.push(`/workspace/${p.id}`)}
-                  className="p-4 rounded-xl bg-zinc-900/70 border border-zinc-800 hover:border-indigo-500/70 text-left transition group cursor-pointer flex flex-col justify-between shadow-lg"
+                  className="p-4 rounded-xl bg-zinc-900/70 border border-zinc-800 hover:border-zinc-600 text-left transition group cursor-pointer flex flex-col justify-between shadow-lg"
                 >
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-950 text-zinc-300 border border-zinc-800">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                         {p.status.toUpperCase()}
                       </span>
                       <span className="text-[10px] text-zinc-500 font-mono">
@@ -470,7 +470,7 @@ export default function ApplicationsChatPage() {
                       </span>
                     </div>
 
-                    <h4 className="text-xs font-bold text-zinc-100 group-hover:text-indigo-400 transition truncate">
+                    <h4 className="text-xs font-bold text-zinc-100 group-hover:text-white transition truncate">
                       {p.name}
                     </h4>
                     <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
@@ -497,7 +497,7 @@ export default function ApplicationsChatPage() {
                       </button>
                     </div>
 
-                    <div className="flex items-center gap-1 text-indigo-400 text-xs font-medium group-hover:translate-x-0.5 transition-transform">
+                    <div className="flex items-center gap-1 text-zinc-300 group-hover:text-white text-xs font-medium group-hover:translate-x-0.5 transition-transform">
                       <span>Open Workspace</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </div>

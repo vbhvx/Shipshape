@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #08090d;
+  --background: #09090b;
   --foreground: #fafafa;
 }
 
@@ -11,31 +11,31 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   overflow-x: hidden;
 
-  /* Dual-layer high-precision developer grid theme */
+  /* Dual-layer high-precision developer monochrome grid theme */
   background-image: 
-    linear-gradient(to right, rgba(99, 102, 241, 0.08) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(99, 102, 241, 0.08) 1px, transparent 1px),
-    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to right, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
   background-size: 64px 64px, 64px 64px, 16px 16px, 16px 16px;
   background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
 }
 
-/* Specialized grid layers */
+/* Specialized monochrome grid layers */
 .bg-grid-blueprint {
   background-size: 48px 48px, 48px 48px, 12px 12px, 12px 12px;
   background-image: 
-    linear-gradient(to right, rgba(99, 102, 241, 0.12) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(99, 102, 241, 0.12) 1px, transparent 1px),
-    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    linear-gradient(to right, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
 }
 
 .bg-grid-crosshair {
   background-image: 
-    radial-gradient(circle at center, rgba(129, 140, 248, 0.5) 1.5px, transparent 1.5px),
-    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.35) 1.2px, transparent 1.2px),
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
   background-size: 64px 64px, 32px 32px, 32px 32px;
 }
 
@@ -45,27 +45,27 @@ body {
   -webkit-mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 60%, transparent 100%);
 }
 
-/* Glowing ambient radial gradients */
-.radial-glow-indigo {
-  background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.22), transparent 70%);
+/* Ambient monochrome silver/white radial illumination */
+.radial-glow-silver {
+  background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.07), transparent 70%);
 }
 
-.radial-glow-cyan {
-  background: radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.16), transparent 60%);
+.radial-glow-dark {
+  background: radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.03), transparent 60%);
 }
 
-/* Custom sleek scrollbar */
+/* Custom sleek monochrome scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #08090d;
+  background: #09090b;
 }
 ::-webkit-scrollbar-thumb {
   background: #27272a;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: #52525b;
 }

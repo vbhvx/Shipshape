@@ -49,14 +49,14 @@ export default function WorkspaceHeader({
         <div className="h-4 w-px bg-zinc-800" />
 
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center font-bold text-white text-xs shadow-sm shadow-indigo-500/40">
+          <div className="w-6 h-6 rounded-md bg-white flex items-center justify-center font-bold text-black text-xs shadow-sm shadow-white/10">
             S
           </div>
           <span className="font-semibold text-zinc-100 text-sm tracking-tight truncate max-w-[200px]">
             {project.name}
           </span>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-900 text-zinc-300 border border-zinc-700/80">
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
             {project.status.toUpperCase()}
           </span>
         </div>
@@ -65,7 +65,7 @@ export default function WorkspaceHeader({
       {/* Center: Version Selector */}
       <div className="hidden md:flex items-center gap-2">
         <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1 text-xs">
-          <Layers className="w-3.5 h-3.5 text-indigo-400" />
+          <Layers className="w-3.5 h-3.5 text-zinc-400" />
           <span className="text-zinc-400">Version:</span>
           <select
             value={currentVersion?.id || ''}
@@ -87,11 +87,11 @@ export default function WorkspaceHeader({
         {/* Provider Pills */}
         <div className="hidden lg:flex items-center gap-2 text-[11px] text-zinc-400">
           <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800">
-            <Sparkles className="w-3 h-3 text-amber-400" />
+            <Sparkles className="w-3 h-3 text-zinc-300" />
             <span>AI: Built-in Engine</span>
           </div>
           <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800">
-            <Server className="w-3 h-3 text-cyan-400" />
+            <Server className="w-3 h-3 text-zinc-300" />
             <span>Sandbox: Local Isolated</span>
           </div>
         </div>
@@ -105,7 +105,7 @@ export default function WorkspaceHeader({
           title="Restart Sandbox Runtime"
           className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 transition disabled:opacity-50"
         >
-          <RotateCcw className={`w-3.5 h-3.5 ${isRestarting ? 'animate-spin text-indigo-400' : ''}`} />
+          <RotateCcw className={`w-3.5 h-3.5 ${isRestarting ? 'animate-spin text-white' : ''}`} />
         </button>
 
         <a
@@ -121,9 +121,9 @@ export default function WorkspaceHeader({
         <button
           onClick={onExport}
           disabled={isExporting}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition shadow-md shadow-indigo-600/30 disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black text-xs font-semibold transition shadow-md shadow-white/10 disabled:opacity-50"
         >
-          <Download className="w-3.5 h-3.5" />
+          <Download className="w-3.5 h-3.5 text-black" />
           <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export .zip'}</span>
         </button>
       </div>

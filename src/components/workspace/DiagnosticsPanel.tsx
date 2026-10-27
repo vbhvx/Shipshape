@@ -24,15 +24,9 @@ export default function DiagnosticsPanel({
       {/* Top Diagnostics Status Bar */}
       <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Terminal className="w-4 h-4 text-indigo-400" />
+          <Terminal className="w-4 h-4 text-zinc-300" />
           <span className="font-semibold text-zinc-200">Diagnostics & Execution Logs</span>
-          <span
-            className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-              hasErrors
-                ? 'bg-rose-950 text-rose-400 border border-rose-800'
-                : 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-            }`}
-          >
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-900 text-zinc-300 border border-zinc-700/80">
             {hasErrors ? 'ATTENTION REQUIRED' : 'HEALTHY / VERIFIED'}
           </span>
         </div>
@@ -41,9 +35,9 @@ export default function DiagnosticsPanel({
           <button
             onClick={onTriggerRepair}
             disabled={isRepairing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs transition shadow-md shadow-amber-600/30 disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-xs transition shadow-md shadow-white/10 disabled:opacity-50"
           >
-            <Wrench className="w-3.5 h-3.5" />
+            <Wrench className="w-3.5 h-3.5 text-black" />
             <span>{isRepairing ? 'Repairing...' : 'Auto-Repair with AI Agent'}</span>
           </button>
         )}
@@ -57,13 +51,13 @@ export default function DiagnosticsPanel({
               key={b.id}
               className={`p-3 rounded-xl border ${
                 b.status === 'failed'
-                  ? 'bg-rose-950/20 border-rose-800/60'
+                  ? 'bg-zinc-900/90 border-zinc-700'
                   : 'bg-zinc-900 border-zinc-800'
               }`}
             >
               <div className="flex items-center justify-between text-[11px] mb-1">
                 <span className="font-mono uppercase font-semibold text-zinc-300">{b.checkType}</span>
-                <span className={b.status === 'passed' ? 'text-emerald-400' : 'text-rose-400 font-bold'}>
+                <span className={b.status === 'passed' ? 'text-zinc-200 font-semibold' : 'text-zinc-400 font-bold'}>
                   {b.status.toUpperCase()}
                 </span>
               </div>
@@ -71,7 +65,7 @@ export default function DiagnosticsPanel({
                 Duration: {b.durationMs}ms • Exit code: {b.exitCode}
               </div>
               {b.errors && b.errors.length > 0 && (
-                <div className="mt-2 text-[11px] text-rose-300 font-mono bg-rose-950/40 p-2 rounded border border-rose-900/60">
+                <div className="mt-2 text-[11px] text-zinc-300 font-mono bg-zinc-950 p-2 rounded border border-zinc-800">
                   {b.errors[0].message}
                 </div>
               )}
@@ -92,10 +86,10 @@ export default function DiagnosticsPanel({
               key={l.id}
               className={`leading-relaxed ${
                 l.streamType === 'stderr'
-                  ? 'text-rose-400 font-semibold'
+                  ? 'text-zinc-200 font-semibold'
                   : l.streamType === 'system'
-                  ? 'text-cyan-400'
-                  : 'text-zinc-300'
+                  ? 'text-white'
+                  : 'text-zinc-400'
               }`}
             >
               <span className="text-zinc-600 select-none mr-2">

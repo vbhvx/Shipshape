@@ -39,10 +39,10 @@ export default function CodeInspectorPanel({
   };
 
   const getFileIcon = (path: string) => {
-    if (path.endsWith('.json')) return <FileJson className="w-3.5 h-3.5 text-amber-400" />;
-    if (path.endsWith('.css')) return <FileCode className="w-3.5 h-3.5 text-cyan-400" />;
+    if (path.endsWith('.json')) return <FileJson className="w-3.5 h-3.5 text-zinc-300" />;
+    if (path.endsWith('.css')) return <FileCode className="w-3.5 h-3.5 text-zinc-300" />;
     if (path.endsWith('.md')) return <FileText className="w-3.5 h-3.5 text-zinc-400" />;
-    return <FileCode className="w-3.5 h-3.5 text-indigo-400" />;
+    return <FileCode className="w-3.5 h-3.5 text-zinc-200" />;
   };
 
   const lines = activeFile ? activeFile.content.split('\n') : [];
@@ -59,7 +59,7 @@ export default function CodeInspectorPanel({
               placeholder="Search files..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+              className="w-full pl-8 pr-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-400"
             />
           </div>
         </div>
@@ -73,7 +73,7 @@ export default function CodeInspectorPanel({
                 onClick={() => onSelectFile(f)}
                 className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition ${
                   isSelected
-                    ? 'bg-zinc-800 text-indigo-400 font-medium'
+                    ? 'bg-zinc-800 text-white font-medium'
                     : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
                 }`}
               >
@@ -82,10 +82,10 @@ export default function CodeInspectorPanel({
                   <span className="truncate">{f.path}</span>
                 </div>
                 {f.isModified && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" title="Modified" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 shrink-0" title="Modified" />
                 )}
                 {f.isNew && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="New" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" title="New" />
                 )}
               </button>
             );
@@ -110,7 +110,7 @@ export default function CodeInspectorPanel({
                 onClick={handleCopy}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition text-[11px]"
               >
-                {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                {copied ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3 text-zinc-400" />}
                 <span>{copied ? 'Copied' : 'Copy Code'}</span>
               </button>
             </div>

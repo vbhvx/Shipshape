@@ -57,7 +57,7 @@ export default function LivePreviewPanel({
           </button>
 
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-zinc-950 border border-zinc-800 text-[11px] font-mono text-zinc-400 max-w-sm truncate">
-            <span className="text-emerald-400 font-bold">https://</span>
+            <span className="text-zinc-200 font-bold">https://</span>
             <span className="text-zinc-300">sandbox-{projectId.slice(0, 8)}.shipshape.run</span>
           </div>
         </div>
@@ -67,7 +67,7 @@ export default function LivePreviewPanel({
           <button
             onClick={() => setViewport('desktop')}
             className={`p-1 rounded transition ${
-              viewport === 'desktop' ? 'bg-zinc-800 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'
+              viewport === 'desktop' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-500 hover:text-zinc-300'
             }`}
             title="Desktop 100%"
           >
@@ -76,7 +76,7 @@ export default function LivePreviewPanel({
           <button
             onClick={() => setViewport('tablet')}
             className={`p-1 rounded transition ${
-              viewport === 'tablet' ? 'bg-zinc-800 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'
+              viewport === 'tablet' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-500 hover:text-zinc-300'
             }`}
             title="Tablet (768px)"
           >
@@ -85,7 +85,7 @@ export default function LivePreviewPanel({
           <button
             onClick={() => setViewport('mobile')}
             className={`p-1 rounded transition ${
-              viewport === 'mobile' ? 'bg-zinc-800 text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'
+              viewport === 'mobile' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-500 hover:text-zinc-300'
             }`}
             title="Mobile (375px)"
           >
@@ -95,8 +95,8 @@ export default function LivePreviewPanel({
 
         {/* Right: Security & Fullscreen */}
         <div className="flex items-center gap-2 text-zinc-400">
-          <span className="hidden sm:flex items-center gap-1 text-[11px] text-zinc-500">
-            <Shield className="w-3 h-3 text-emerald-400" />
+          <span className="hidden sm:flex items-center gap-1 text-[11px] text-zinc-400">
+            <Shield className="w-3 h-3 text-zinc-300" />
             <span>Isolated Origin</span>
           </span>
           <a

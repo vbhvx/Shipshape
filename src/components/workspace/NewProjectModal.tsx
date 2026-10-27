@@ -24,22 +24,22 @@ export default function NewProjectModal({
   const starterTemplates = [
     {
       title: 'Kanban Sprint Board',
-      icon: <Layout className="w-4 h-4 text-indigo-400" />,
+      icon: <Layout className="w-4 h-4 text-white" />,
       desc: 'High-performance sprint board with drag-and-drop columns, task priorities, live stats, and CSV export.',
     },
     {
       title: 'AI Analytics & Forecasts',
-      icon: <BarChart3 className="w-4 h-4 text-cyan-400" />,
+      icon: <BarChart3 className="w-4 h-4 text-white" />,
       desc: 'Real-time KPI metrics, performance distribution bars, category analytics, and trend forecasting.',
     },
     {
       title: 'E-Commerce Product Hub',
-      icon: <ShoppingBag className="w-4 h-4 text-emerald-400" />,
+      icon: <ShoppingBag className="w-4 h-4 text-white" />,
       desc: 'Interactive product catalog, shopping cart calculation, inventory tracking, and discount workflows.',
     },
     {
       title: 'Customer Deal CRM',
-      icon: <Users className="w-4 h-4 text-amber-400" />,
+      icon: <Users className="w-4 h-4 text-white" />,
       desc: 'Lead tracking, deal pipeline stages, client contact records, and revenue analytics dashboard.',
     },
   ];
@@ -86,13 +86,13 @@ export default function NewProjectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in select-none">
       <div className="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-indigo-600/30">
-              <Sparkles className="w-4 h-4" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center text-black font-bold text-xs shadow-md shadow-white/10">
+              <Sparkles className="w-4 h-4 text-black" />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-zinc-100">Create New AI-Powered Application</h2>
@@ -107,7 +107,7 @@ export default function NewProjectModal({
         {/* Content */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {error && (
-            <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-800 text-rose-300 text-xs">
+            <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-700 text-zinc-300 text-xs">
               {error}
             </div>
           )}
@@ -123,9 +123,9 @@ export default function NewProjectModal({
                   type="button"
                   key={starter.title}
                   onClick={() => handleSelectStarter(starter)}
-                  className="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800 hover:border-indigo-500/80 hover:bg-zinc-800/40 text-left transition group"
+                  className="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-800/40 text-left transition group"
                 >
-                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200 group-hover:text-indigo-400">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200 group-hover:text-white">
                     {starter.icon}
                     <span>{starter.title}</span>
                   </div>
@@ -145,7 +145,7 @@ export default function NewProjectModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. DevPulse Ops Platform"
-                className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-400"
               />
             </div>
 
@@ -159,7 +159,7 @@ export default function NewProjectModal({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe the application's purpose, key features, target users, pages, and interactive workflows..."
-                className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
+                className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-400 resize-none leading-relaxed"
               />
             </div>
           </div>
@@ -177,17 +177,17 @@ export default function NewProjectModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition flex items-center gap-2 disabled:opacity-50"
+              className="px-5 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold shadow-lg shadow-white/10 transition flex items-center gap-2 disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
                   <span>Synthesizing Application...</span>
                 </>
               ) : (
                 <>
                   <span>Create & Generate Code</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-3.5 h-3.5 text-black" />
                 </>
               )}
             </button>

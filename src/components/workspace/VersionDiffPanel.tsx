@@ -1,15 +1,42 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ProjectVersion, VersionDiff, FileDiff } from '@/types';
-import { History, GitCommit, ArrowRight, RotateCcw, FileCode, Plus, Minus, Check } from 'lucide-react';
+import { ProjectVersion } from '@/types';
+import { RotateCcw, History } from 'lucide-react';
 
 interface VersionDiffPanelProps {
   projectId: string;
   versions: ProjectVersion[];
   activeVersionId?: string;
   onRestoreVersion: (versionId: string) => void;
-  isRestoring: boolean;
+  isRestoring?: boolean;
+}
+
+interface FileDiff {
+  path: string;
+  status: 'added' | 'deleted' | 'modified' | 'unchanged';
+  oldContent?: string;
+  newContent?: string;
+  additions: number;
+  deletions: number;
+  hunks?: {
+    oldStart: number;
+    oldLines: number;
+    newStart: number;
+    newLines: number;
+    lines: string[];
+  }[];
+}
+
+interface VersionDiffResponse {
+  fromVersionId?: string;
+  toVersionId: string;
+  files: FileDiff[];
+  summary: {
+    filesChanged: number;
+    additions: number;
+    deletions: number;
+  };
 }
 
 export default function VersionDiffPanel({
@@ -19,45 +46,36 @@ export default function VersionDiffPanel({
   onRestoreVersion,
   isRestoring,
 }: VersionDiffPanelProps) {
-  const [selectedVersionId, setSelectedVersionId] = useState<string>(activeVersionId || versions[0]?.id || '');
-  const [diff, setDiff] = useState<VersionDiff | null>(null);
-  const [selectedFilePath, setSelectedFilePath] = useState<string>('');
+  const [selectedVersionId, setSelectedVersionId] = useState<string>(
+    activeVersionId || versions[versions.length - 1]?.id || ''
+  );
+  const [diff, setDiff] = useState<VersionDiffResponse | null>(null);
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
-
-  useEffect(() => {
-    if (activeVersionId && !selectedVersionId) {
-      setSelectedVersionId(activeVersionId);
-    }
-  }, [activeVersionId]);
 
   useEffect(() => {
     if (!selectedVersionId) return;
 
-    let ignore = false;
-    async function loadDiff() {
-      setLoadingDiff(true);
+    const fetchDiff = async () => {
       try {
+        setLoadingDiff(true);
         const res = await fetch(`/api/v1/projects/${projectId}/versions/${selectedVersionId}/diff`);
-        const json = await res.json();
-        if (!ignore && json.success) {
-          setDiff(json.diff);
-          if (json.diff.files.length > 0) {
-            const firstChanged = json.diff.files.find((f: FileDiff) => f.status !== 'unchanged');
-            setSelectedFilePath(firstChanged?.path || json.diff.files[0].path);
+        const data = await res.json();
+        if (data.success) {
+          setDiff(data.diff);
+          if (data.diff.files.length > 0 && !selectedFilePath) {
+            setSelectedFilePath(data.diff.files[0].path);
           }
         }
       } catch (err) {
         console.error('Failed to load version diff:', err);
       } finally {
-        if (!ignore) setLoadingDiff(false);
+        setLoadingDiff(false);
       }
-    }
-
-    loadDiff();
-    return () => {
-      ignore = true;
     };
-  }, [projectId, selectedVersionId]);
+
+    fetchDiff();
+  }, [projectId, selectedVersionId, selectedFilePath]);
 
   const selectedFileDiff = diff?.files.find((f) => f.path === selectedFilePath);
 
@@ -67,16 +85,16 @@ export default function VersionDiffPanel({
       <div className="p-3 border-b border-zinc-800 bg-zinc-900/40 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 font-semibold text-zinc-200">
-            <History className="w-4 h-4 text-indigo-400" />
+            <History className="w-4 h-4 text-zinc-300" />
             <span>Version History & Snapshot Diffs</span>
           </div>
           {selectedVersionId && selectedVersionId !== activeVersionId && (
             <button
               onClick={() => onRestoreVersion(selectedVersionId)}
               disabled={isRestoring}
-              className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[11px] flex items-center gap-1 transition disabled:opacity-50"
+              className="px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-200 text-black font-semibold text-[11px] flex items-center gap-1 transition shadow-md shadow-white/10 disabled:opacity-50"
             >
-              <RotateCcw className="w-3 h-3" />
+              <RotateCcw className="w-3 h-3 text-black" />
               {isRestoring ? 'Restoring...' : 'Restore This Version'}
             </button>
           )}
@@ -93,14 +111,14 @@ export default function VersionDiffPanel({
                 onClick={() => setSelectedVersionId(v.id)}
                 className={`px-3 py-2 rounded-xl border text-left shrink-0 transition-all ${
                   isSelected
-                    ? 'bg-zinc-800 border-indigo-500/80 text-white shadow-md'
+                    ? 'bg-zinc-800 border-zinc-600 text-white shadow-md'
                     : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800/60'
                 }`}
               >
                 <div className="flex items-center gap-1.5 font-semibold">
                   <span>v{v.versionNumber}</span>
                   {isActive && (
-                    <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-950 text-emerald-400 border border-emerald-800">
+                    <span className="px-1.5 py-0.2 rounded text-[9px] bg-zinc-800 text-zinc-200 border border-zinc-700">
                       ACTIVE
                     </span>
                   )}
@@ -138,14 +156,14 @@ export default function VersionDiffPanel({
                   onClick={() => setSelectedFilePath(f.path)}
                   className={`w-full text-left px-2 py-1.5 rounded-lg text-xs truncate flex items-center justify-between transition ${
                     isSelected
-                      ? 'bg-zinc-800 text-indigo-400 font-medium'
+                      ? 'bg-zinc-800 text-white font-medium'
                       : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
                   }`}
                 >
                   <span className="truncate">{f.path.split('/').pop()}</span>
                   <div className="flex items-center gap-1 text-[10px] shrink-0 font-mono">
-                    {f.additions > 0 && <span className="text-emerald-400">+{f.additions}</span>}
-                    {f.deletions > 0 && <span className="text-rose-400">-{f.deletions}</span>}
+                    {f.additions > 0 && <span className="text-zinc-200 font-semibold">+{f.additions}</span>}
+                    {f.deletions > 0 && <span className="text-zinc-500">-{f.deletions}</span>}
                   </div>
                 </button>
               );
@@ -170,7 +188,7 @@ export default function VersionDiffPanel({
                 <div className="rounded-lg overflow-hidden border border-zinc-800/80 bg-zinc-900/60 divide-y divide-zinc-800/40">
                   {selectedFileDiff.hunks.map((hunk, hIdx) => (
                     <div key={hIdx} className="space-y-0.5">
-                      <div className="px-3 py-1 bg-zinc-800/60 text-indigo-400 text-[10px] select-none">
+                      <div className="px-3 py-1 bg-zinc-800/60 text-zinc-300 text-[10px] select-none font-mono">
                         @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
                       </div>
                       {hunk.lines.map((line, lIdx) => {
@@ -181,9 +199,9 @@ export default function VersionDiffPanel({
                             key={lIdx}
                             className={`px-3 py-0.5 whitespace-pre flex gap-2 ${
                               isAdd
-                                ? 'bg-emerald-950/40 text-emerald-300'
+                                ? 'bg-zinc-800/60 text-zinc-100 font-medium'
                                 : isDel
-                                ? 'bg-rose-950/40 text-rose-300'
+                                ? 'bg-zinc-900/60 text-zinc-500 line-through'
                                 : 'text-zinc-400'
                             }`}
                           >
