@@ -47,20 +47,20 @@ const DEFAULT_USER: User = {
   updatedAt: new Date().toISOString(),
 };
 
-async function ensureDataStore(): Promise<DatabaseStore> {
-  if (storeCache) return storeCache;
-  if (isInitializing) {
-    // Wait briefly if initialization in progress
-    await new Promise((r) => setTimeout(r, 50));
-    if (storeCache) return storeCache;
-  }
-  isInitializing = true;
+let lastMtime = 0;
 
+async function ensureDataStore(): Promise<DatabaseStore> {
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
     try {
+      const stat = await fs.stat(DATA_FILE);
+      if (storeCache && stat.mtimeMs <= lastMtime) {
+        return storeCache;
+      }
       const data = await fs.readFile(DATA_FILE, 'utf-8');
       storeCache = JSON.parse(data) as DatabaseStore;
+      lastMtime = stat.mtimeMs;
+      return storeCache;
     } catch {
       // Initialize with default structure
       storeCache = {
