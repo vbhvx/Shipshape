@@ -49,7 +49,7 @@ export default function WorkspaceHeader({
         <div className="h-4 w-px bg-zinc-800" />
 
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-white flex items-center justify-center font-bold text-black text-xs shadow-sm shadow-white/10">
+          <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center font-bold text-white text-xs shadow-sm shadow-indigo-500/40">
             S
           </div>
           <span className="font-semibold text-zinc-100 text-sm tracking-tight truncate max-w-[200px]">

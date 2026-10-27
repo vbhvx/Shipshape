@@ -184,15 +184,15 @@ export function CartDrawer({ items, onCheckout }: CartProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950/80 text-zinc-100 font-sans selection:bg-zinc-200 selection:text-black bg-grid-crosshair relative">
-      {/* Ambient Lighting Orbs - Monochrome Silver & White */}
-      <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-white/[0.04] blur-[150px] pointer-events-none rounded-full" />
-      <div className="absolute top-40 right-1/4 w-[500px] h-[350px] bg-zinc-500/[0.04] blur-[140px] pointer-events-none rounded-full" />
+      {/* Ambient Lighting Orbs - Coordinated with Theme */}
+      <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-indigo-600/10 blur-[140px] pointer-events-none rounded-full" />
+      <div className="absolute top-40 right-1/4 w-[500px] h-[350px] bg-cyan-500/10 blur-[130px] pointer-events-none rounded-full" />
 
       {/* Top Navigation */}
       <header className="h-16 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-white via-zinc-200 to-zinc-400 flex items-center justify-center font-bold text-black shadow-lg shadow-white/10">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-600/30">
               S
             </div>
             <div className="flex items-center gap-2">

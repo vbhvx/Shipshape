@@ -205,9 +205,9 @@ export default function ApplicationsChatPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950/80 text-zinc-100 font-sans selection:bg-zinc-200 selection:text-black bg-grid-crosshair relative">
-      {/* Ambient Lighting Orbs - Monochrome Silver & White */}
-      <div className="absolute top-0 left-1/3 w-[600px] h-[380px] bg-white/[0.04] blur-[150px] pointer-events-none rounded-full" />
-      <div className="absolute top-60 right-1/4 w-[500px] h-[320px] bg-zinc-500/[0.04] blur-[140px] pointer-events-none rounded-full" />
+      {/* Ambient Lighting Orbs - Coordinated with Theme */}
+      <div className="absolute top-0 left-1/3 w-[600px] h-[380px] bg-indigo-600/10 blur-[140px] pointer-events-none rounded-full" />
+      <div className="absolute top-60 right-1/4 w-[500px] h-[320px] bg-cyan-500/10 blur-[130px] pointer-events-none rounded-full" />
 
       {/* Top Header */}
       <header className="h-16 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur sticky top-0 z-40">
@@ -224,7 +224,7 @@ export default function ApplicationsChatPage() {
             <div className="h-4 w-px bg-zinc-800 hidden sm:block" />
 
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-white via-zinc-200 to-zinc-400 flex items-center justify-center font-bold text-black text-xs shadow-md shadow-white/10">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center font-bold text-white text-xs shadow-md shadow-indigo-600/30">
                 S
               </div>
               <div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sparkles, X, Layout, BarChart3, ShoppingBag, Users, ArrowRight, Loader2 } from 'lucide-react';
+import { X, Layout, BarChart3, ShoppingBag, Users, ArrowRight, Loader2 } from 'lucide-react';
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -91,8 +91,8 @@ export default function NewProjectModal({
         {/* Header */}
         <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center text-black font-bold text-xs shadow-md shadow-white/10">
-              <Sparkles className="w-4 h-4 text-black" />
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-indigo-600/30">
+              S
             </div>
             <div>
               <h2 className="text-sm font-semibold text-zinc-100">Create New AI-Powered Application</h2>
