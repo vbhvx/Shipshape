@@ -34,9 +34,10 @@ const GeminiResponseSchema = z.object({
   files: z.array(GeminiFileSchema).min(1),
 });
 
-const PRIMARY_MODEL = 'gemini-2.0-flash';
-const FALLBACK_MODEL = 'gemini-1.5-flash';
-const MAX_RETRIES = 2;
+export const PRIMARY_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+export const FALLBACK_MODEL = 'gemini-3.6-flash';
+const MAX_RETRIES = 1;
+const REQUEST_TIMEOUT_MS = 12000;
 
 /**
  * Checks whether GEMINI_API_KEY is configured in the environment.
@@ -105,9 +106,9 @@ async function callGeminiApi(
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       if (attempt > 0) {
-        // Exponential backoff with jitter (fast in tests)
-        const base = process.env.NODE_ENV === 'test' ? 10 : 1000;
-        const delay = Math.min(base * Math.pow(2, attempt) + (process.env.NODE_ENV === 'test' ? 0 : Math.random() * 500), 5000);
+        // Fast backoff with jitter (fast in tests)
+        const base = process.env.NODE_ENV === 'test' ? 10 : 800;
+        const delay = Math.min(base * Math.pow(2, attempt) + (process.env.NODE_ENV === 'test' ? 0 : Math.random() * 200), 2000);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
 
@@ -115,6 +116,7 @@ async function callGeminiApi(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(REQUEST_TIMEOUT_MS) : undefined,
       });
 
       if (!res.ok) {
@@ -127,7 +129,13 @@ async function callGeminiApi(
         errorObj.apiStatus = errStatus;
         errorObj.details = errorJson;
 
-        // On 429 quota or 503 transient error, retry
+        // Fatal client/auth/config errors (400, 401, 403, 404): never retry
+        if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404) {
+          errorObj.isFatal = true;
+          throw errorObj;
+        }
+
+        // On 429 quota or 503 transient error, retry at most once
         if (res.status === 429 || res.status >= 500) {
           lastError = errorObj;
           continue;
@@ -150,7 +158,8 @@ async function callGeminiApi(
       };
     } catch (err: any) {
       lastError = err;
-      if (attempt === MAX_RETRIES) {
+      // Immediately abort loop on fatal errors (auth, not found, or bad request)
+      if (err.isFatal || err.status === 400 || err.status === 401 || err.status === 403 || err.status === 404 || attempt >= MAX_RETRIES) {
         break;
       }
     }
@@ -225,6 +234,9 @@ Standard configuration files (package.json, tsconfig.json, globals.css, layout.t
       try {
         result = await callGeminiApi(systemPrompt, userPrompt, PRIMARY_MODEL);
       } catch (primaryErr: any) {
+        if (primaryErr.isFatal || [400, 401, 403, 404].includes(primaryErr.status)) {
+          throw primaryErr;
+        }
         if (onLog) {
           await onLog(`[AI PROVIDER] ${PRIMARY_MODEL} returned error (${primaryErr.message}). Retrying with ${FALLBACK_MODEL}...`, 'stderr');
         }
@@ -293,11 +305,18 @@ Standard configuration files (package.json, tsconfig.json, globals.css, layout.t
     } catch (geminiError: any) {
       const isQuota = geminiError.status === 429 || geminiError.apiStatus === 'RESOURCE_EXHAUSTED';
       const isAuth = geminiError.status === 401 || geminiError.status === 403;
-      const errorCode = isQuota ? 'GEMINI_QUOTA_EXCEEDED' : isAuth ? 'GEMINI_INVALID_KEY' : 'GEMINI_INFERENCE_ERROR';
+      const isNotFound = geminiError.status === 404;
+      const errorCode = isQuota
+        ? 'GEMINI_QUOTA_EXCEEDED'
+        : isAuth
+        ? 'GEMINI_INVALID_KEY'
+        : isNotFound
+        ? 'GEMINI_MODEL_UNAVAILABLE'
+        : 'GEMINI_INFERENCE_ERROR';
 
       if (onLog) {
         await onLog(`[AI PROVIDER] Gemini request failed [${errorCode}]: ${geminiError.message}`, 'stderr');
-        await onLog('[AI PROVIDER] Seamlessly falling back to Shipshape deterministic domain catalog...', 'system');
+        await onLog('[AI PROVIDER] Seamlessly synthesizing via Shipshape deterministic domain catalog...', 'system');
       }
 
       const files = await generateProjectFiles(plan, specification);

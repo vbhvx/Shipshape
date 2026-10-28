@@ -34,6 +34,8 @@ export async function GET(
     let isAlive = true;
     let lastEventCount = 0;
 
+    const streamStartTime = Date.now();
+
     const stream = new ReadableStream({
       async start(controller) {
         // Periodic poll and event dispatch loop
@@ -44,7 +46,7 @@ export async function GET(
           }
 
           try {
-            const currentRun = await db.getGenerationRun(runId);
+            let currentRun = await db.getGenerationRun(runId);
             if (!currentRun) {
               controller.enqueue(
                 encoder.encode(`event: error\ndata: ${JSON.stringify({ error: 'Run not found' })}\n\n`)
@@ -52,6 +54,25 @@ export async function GET(
               clearInterval(interval);
               controller.close();
               return;
+            }
+
+            // Stale run auto-reaper: fail any run that has been active for more than 2 minutes
+            const isActive = !['completed', 'failed', 'cancelled'].includes(currentRun.status);
+            const isStale = isActive && (Date.now() - new Date(currentRun.startedAt).getTime() > 120_000);
+            if (isStale) {
+              await db.updateGenerationRun(runId, {
+                status: 'failed',
+                finishedAt: new Date().toISOString(),
+                errorCode: 'RUN_TIMEOUT',
+                errorMessage: 'Generation timed out after 2 minutes',
+              });
+              currentRun = {
+                ...currentRun,
+                status: 'failed',
+                finishedAt: new Date().toISOString(),
+                errorCode: 'RUN_TIMEOUT',
+                errorMessage: 'Generation timed out after 2 minutes',
+              };
             }
 
             const events = await db.getGenerationEvents(runId);
@@ -77,8 +98,8 @@ export async function GET(
               )
             );
 
-            // If run has finished, close stream cleanly
-            if (['completed', 'failed', 'cancelled'].includes(currentRun.status)) {
+            // If run has finished or max stream duration reached, close stream cleanly
+            if (['completed', 'failed', 'cancelled'].includes(currentRun.status) || (Date.now() - streamStartTime > 120_000)) {
               clearInterval(interval);
               controller.enqueue(
                 encoder.encode(`event: done\ndata: ${JSON.stringify({ status: currentRun.status })}\n\n`)

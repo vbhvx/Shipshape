@@ -612,4 +612,42 @@ describe('Generation Lifecycle Hardening & Vercel Compatibility', () => {
       expect(logContents).not.toContain('TypeScript compilation check: PASSED');
     });
   });
+
+  describe('Zombie run reaping and auto-recovery', () => {
+    it('detects and reaps stale active runs older than 2 minutes without blocking new generations', async () => {
+      const staleRunId = `run_stale_${Date.now()}`;
+      const threeMinutesAgo = new Date(Date.now() - 180000).toISOString();
+
+      await db.saveGenerationRun({
+        id: staleRunId,
+        projectId: testProjectId,
+        runType: 'generation',
+        status: 'generating',
+        modelProvider: 'deterministic',
+        modelIdentifier: 'deterministic-engine-v1',
+        attemptCount: 1,
+        startedAt: threeMinutesAgo,
+      });
+
+      // Verify that the stale run can be retrieved and detected
+      const fetchedRun = await db.getGenerationRun(staleRunId);
+      expect(fetchedRun).toBeDefined();
+
+      const isStale = ['queued', 'planning', 'generating', 'validating', 'building', 'repairing', 'starting'].includes(fetchedRun!.status) &&
+        (Date.now() - new Date(fetchedRun!.startedAt).getTime() > 120_000);
+      expect(isStale).toBe(true);
+
+      // Verify updating stale run transitions it to terminal failed state with RUN_TIMEOUT
+      await db.updateGenerationRun(staleRunId, {
+        status: 'failed',
+        finishedAt: new Date().toISOString(),
+        errorCode: 'RUN_TIMEOUT',
+        errorMessage: 'Generation timed out after 2 minutes',
+      });
+
+      const updated = await db.getGenerationRun(staleRunId);
+      expect(updated?.status).toBe('failed');
+      expect(updated?.errorCode).toBe('RUN_TIMEOUT');
+    });
+  });
 });

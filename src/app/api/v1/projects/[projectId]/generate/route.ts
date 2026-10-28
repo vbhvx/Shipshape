@@ -43,10 +43,20 @@ export async function POST(
 
     const activeRun = await db.getLatestGenerationRun(projectId);
     if (activeRun && ['queued', 'planning', 'generating', 'validating', 'building', 'repairing', 'starting', 'preview_ready'].includes(activeRun.status)) {
-      return NextResponse.json(
-        { success: false, error: 'A generation is already in progress for this project', runId: activeRun.id },
-        { status: 409 }
-      );
+      const isStale = Date.now() - new Date(activeRun.startedAt).getTime() > 120_000;
+      if (isStale) {
+        await db.updateGenerationRun(activeRun.id, {
+          status: 'failed',
+          finishedAt: new Date().toISOString(),
+          errorCode: 'RUN_TIMEOUT',
+          errorMessage: 'Previous generation timed out after 2 minutes',
+        });
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'A generation is already in progress for this project', runId: activeRun.id },
+          { status: 409 }
+        );
+      }
     }
 
     let plan = parsed.data.plan as ApplicationPlan | undefined;
@@ -82,7 +92,7 @@ export async function POST(
       .substring(2, 7)}`;
 
     const chosenProvider = parsed.data.modelProvider || (isGeminiConfigured() ? 'gemini' : 'deterministic');
-    const chosenIdentifier = chosenProvider === 'gemini' ? 'gemini-2.0-flash' : 'deterministic-engine-v1';
+    const chosenIdentifier = chosenProvider === 'gemini' ? 'gemini-3.5-flash' : 'deterministic-engine-v1';
 
     const newRun: GenerationRun = {
       id: runId,

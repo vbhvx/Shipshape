@@ -14,12 +14,30 @@ export async function GET(
     const user = await requireAuth();
     const { runId } = await params;
 
-    const run = await db.getGenerationRun(runId);
+    let run = await db.getGenerationRun(runId);
     if (!run) {
       return NextResponse.json(
         { success: false, error: 'Generation run not found' },
         { status: 404 }
       );
+    }
+
+    const isActive = !['completed', 'failed', 'cancelled'].includes(run.status);
+    const isStale = isActive && (Date.now() - new Date(run.startedAt).getTime() > 120_000);
+    if (isStale) {
+      await db.updateGenerationRun(runId, {
+        status: 'failed',
+        finishedAt: new Date().toISOString(),
+        errorCode: 'RUN_TIMEOUT',
+        errorMessage: 'Generation run timed out after 2 minutes',
+      });
+      run = (await db.getGenerationRun(runId)) || {
+        ...run,
+        status: 'failed',
+        finishedAt: new Date().toISOString(),
+        errorCode: 'RUN_TIMEOUT',
+        errorMessage: 'Generation run timed out after 2 minutes',
+      };
     }
 
     const project = await getOwnedProject(run.projectId, user.id);

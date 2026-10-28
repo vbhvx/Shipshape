@@ -249,8 +249,21 @@ function WorkspaceContent({
     } catch (err: any) {
       alert(`Execution error: ${err.message}`);
       setIsProcessing(false);
+      await reloadVersionsAndFiles();
     }
   };
+
+  // Watchdog timer: ensure isProcessing never hangs for more than 60 seconds
+  useEffect(() => {
+    if (!isProcessing) return;
+    const timeout = setTimeout(() => {
+      console.warn('Watchdog timeout: generation processing took longer than 60s, releasing lock');
+      setIsProcessing(false);
+      reloadVersionsAndFiles();
+    }, 60000);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProcessing]);
 
   // Initial load
   useEffect(() => {
@@ -307,9 +320,13 @@ function WorkspaceContent({
                   'starting',
                 ].includes(runData.run.status);
 
-                if (isRunActive) {
+                const isStale = isRunActive && (Date.now() - new Date(runData.run.startedAt).getTime() > 90_000);
+
+                if (isRunActive && !isStale) {
                   setIsProcessing(true);
                   connectSSE(runIdToTrack);
+                } else if (isStale) {
+                  setIsProcessing(false);
                 }
               }
             } catch (runErr) {
@@ -319,7 +336,7 @@ function WorkspaceContent({
 
           // Autostart initial generation if navigated directly from hero or applications and no versions exist yet
           const shouldAutostart = searchParams.get('autostart') === 'true';
-          const hasNoRunsOrVersions = !runIdToTrack && (!versData.versions || versData.versions.length === 0);
+          const hasNoRunsOrVersions = (!runIdToTrack) && (!versData.versions || versData.versions.length === 0);
           if (shouldAutostart && hasNoRunsOrVersions && data.project?.description) {
             handleSendMessage(data.project.description);
           }

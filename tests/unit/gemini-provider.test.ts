@@ -297,4 +297,73 @@ describe('GeminiProvider', () => {
     expect(updatedPage?.isModified).toBe(true);
     expect(result.files.find((f) => f.path === 'package.json')).toBeDefined();
   });
+
+  it('handles 403 invalid key or permission denied with fast fallback and no retries', async () => {
+    process.env.GEMINI_API_KEY = 'invalid-key';
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      json: async () => ({
+        error: {
+          code: 403,
+          message: 'Method does not allow unregistered callers.',
+          status: 'PERMISSION_DENIED',
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const mockPlan = createTestPlan('Todo App', 'A todo application');
+    const logs: string[] = [];
+
+    const result = await GeminiProvider.generateProject(
+      mockPlan,
+      mockPlan.specification,
+      async (msg) => { logs.push(msg); }
+    );
+
+    // Assert that fetch was called exactly once on primary model, never retrying 403
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.success).toBe(true);
+    expect(result.fallbackUsed).toBe(true);
+    expect(result.errorCode).toBe('GEMINI_INVALID_KEY');
+    expect(result.modelProvider).toBe('deterministic');
+    expect(result.files.length).toBeGreaterThan(0);
+    expect(logs.some((l) => l.includes('GEMINI_INVALID_KEY'))).toBe(true);
+  });
+
+  it('handles 404 deprecated model with immediate fallback without secondary retry loop', async () => {
+    process.env.GEMINI_API_KEY = 'valid-key';
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+      json: async () => ({
+        error: {
+          code: 404,
+          message: 'This model is no longer available.',
+          status: 'NOT_FOUND',
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const mockPlan = createTestPlan('Todo App', 'A todo app');
+    const logs: string[] = [];
+
+    const result = await GeminiProvider.generateProject(
+      mockPlan,
+      mockPlan.specification,
+      async (msg) => { logs.push(msg); }
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.success).toBe(true);
+    expect(result.fallbackUsed).toBe(true);
+    expect(result.errorCode).toBe('GEMINI_MODEL_UNAVAILABLE');
+    expect(result.modelProvider).toBe('deterministic');
+  });
 });
