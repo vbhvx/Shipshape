@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Show, UserButton } from '@clerk/nextjs';
+import { Show, UserButton, useAuth } from '@clerk/nextjs';
 import { Project } from '@/types';
 import {
   Sparkles,
@@ -21,10 +21,12 @@ import {
   Zap,
   Bot,
   Code2,
+  LogIn,
 } from 'lucide-react';
 
 export default function ApplicationsChatPage() {
   const router = useRouter();
+  const { isSignedIn, isLoaded } = useAuth();
   const [prompt, setPrompt] = useState('');
   const [projectName, setProjectName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,6 +45,93 @@ export default function ApplicationsChatPage() {
       timestamp: 'Just now',
     },
   ]);
+
+  const executeGeneration = async (promptText: string, customName?: string) => {
+    if (!promptText.trim() || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setError('');
+
+    const finalName =
+      (customName || projectName).trim() ||
+      promptText
+        .trim()
+        .slice(0, 24)
+        .replace(/[^a-zA-Z0-9 ]/g, '') ||
+      'New Project';
+
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        role: 'user',
+        text: promptText.trim(),
+        timestamp,
+      },
+      {
+        role: 'assistant',
+        text: `Starting synthesis for "${finalName}"... Interpreting requirements, designing schema & Next.js App Router structure, and setting up isolated sandbox live preview.`,
+        timestamp: 'Just now',
+        step: 'Initializing agentic pipeline...',
+      },
+    ]);
+
+    try {
+      // 1. Create Project
+      const res = await fetch('/api/v1/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: finalName, description: promptText.trim() }),
+      });
+      const json = await res.json();
+
+      if (!json.success) {
+        if (res.status === 401 || json.error?.toLowerCase().includes('auth')) {
+          sessionStorage.setItem('shipshape_pending_prompt', promptText.trim());
+          router.push('/sign-in?redirect_url=' + encodeURIComponent('/applications?autostart=true'));
+          return;
+        }
+        throw new Error(json.error || 'Failed to create project');
+      }
+
+      const projectId = json.project.id;
+
+      // 2. Trigger Generation Pipeline Run
+      const genRes = await fetch(`/api/v1/projects/${projectId}/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: promptText.trim() }),
+      });
+      const genData = await genRes.json();
+      const runId = genData?.runId;
+
+      sessionStorage.removeItem('shipshape_pending_prompt');
+
+      // Redirect into workspace with runId
+      router.push(runId ? `/workspace/${projectId}?runId=${runId}` : `/workspace/${projectId}`);
+    } catch (err: any) {
+      console.error('Error during generation:', err);
+      setError(err.message || 'An error occurred while creating the project.');
+      setIsSubmitting(false);
+    }
+  };
+
+  // Restore prompt if user just returned from sign-in
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const pending = sessionStorage.getItem('shipshape_pending_prompt');
+    if (pending) {
+      setPrompt(pending);
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('autostart') === 'true' && isSignedIn) {
+        sessionStorage.removeItem('shipshape_pending_prompt');
+        window.history.replaceState({}, '', '/applications');
+        executeGeneration(pending);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn]);
 
   const quickStarters = [
     {
@@ -151,60 +240,13 @@ export default function ApplicationsChatPage() {
     e.preventDefault();
     if (!prompt.trim() || isSubmitting) return;
 
-    setIsSubmitting(true);
-    setError('');
-
-    const finalName =
-      projectName.trim() ||
-      prompt
-        .trim()
-        .slice(0, 24)
-        .replace(/[^a-zA-Z0-9 ]/g, '') ||
-      'New Project';
-
-    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    setChatMessages((prev) => [
-      ...prev,
-      {
-        role: 'user',
-        text: prompt.trim(),
-        timestamp,
-      },
-      {
-        role: 'assistant',
-        text: `Starting synthesis for "${finalName}"... Interpreting requirements, designing schema & Next.js App Router structure, and setting up isolated sandbox live preview.`,
-        timestamp: 'Just now',
-        step: 'Initializing agentic pipeline...',
-      },
-    ]);
-
-    try {
-      // 1. Create Project
-      const res = await fetch('/api/v1/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: finalName, description: prompt.trim() }),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || 'Failed to create project');
-
-      const projectId = json.project.id;
-
-      // 2. Trigger Generation Pipeline Run
-      await fetch(`/api/v1/projects/${projectId}/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim() }),
-      });
-
-      // Redirect into workspace
-      router.push(`/workspace/${projectId}`);
-    } catch (err: any) {
-      console.error('Error during generation:', err);
-      setError(err.message || 'An error occurred while creating the project.');
-      setIsSubmitting(false);
+    if (isLoaded && !isSignedIn) {
+      sessionStorage.setItem('shipshape_pending_prompt', prompt.trim());
+      router.push('/sign-in?redirect_url=' + encodeURIComponent('/applications?autostart=true'));
+      return;
     }
+
+    await executeGeneration(prompt);
   };
 
   return (
@@ -439,6 +481,11 @@ export default function ApplicationsChatPage() {
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
                     <span>Synthesizing Codebase...</span>
+                  </>
+                ) : isLoaded && !isSignedIn ? (
+                  <>
+                    <span>Sign in & start building</span>
+                    <LogIn className="w-3.5 h-3.5 text-black" />
                   </>
                 ) : (
                   <>

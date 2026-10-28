@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, ArrowRight, Loader2, Layout, Users, ShoppingBag } from 'lucide-react';
+import { useAuth } from '@clerk/nextjs';
+import { Sparkles, ArrowRight, Loader2, Layout, Users, ShoppingBag, LogIn } from 'lucide-react';
 
 interface PromptChip {
   id: string;
@@ -41,6 +42,7 @@ const EXAMPLE_CHIPS: PromptChip[] = [
 
 export default function HeroPromptBox() {
   const router = useRouter();
+  const { isSignedIn, isLoaded } = useAuth();
   const [prompt, setPrompt] = useState('');
   const [projectName, setProjectName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,16 +56,14 @@ export default function HeroPromptBox() {
     setError(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prompt.trim() || isSubmitting) return;
-
+  const triggerBuild = async (promptText: string, customName?: string) => {
+    if (!promptText.trim()) return;
     setIsSubmitting(true);
     setError(null);
 
     const finalName =
-      projectName.trim() ||
-      prompt
+      (customName || projectName).trim() ||
+      promptText
         .trim()
         .slice(0, 24)
         .replace(/[^a-zA-Z0-9 ]/g, '') ||
@@ -74,27 +74,70 @@ export default function HeroPromptBox() {
       const res = await fetch('/api/v1/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: finalName, description: prompt.trim() }),
+        body: JSON.stringify({ name: finalName, description: promptText.trim() }),
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error || 'Failed to create project');
+
+      if (!json.success) {
+        if (res.status === 401 || json.error?.toLowerCase().includes('auth')) {
+          sessionStorage.setItem('shipshape_pending_prompt', promptText.trim());
+          router.push('/sign-in?redirect_url=' + encodeURIComponent('/?autostart=true'));
+          return;
+        }
+        throw new Error(json.error || 'Failed to create project');
+      }
 
       const projectId = json.project.id;
 
       // 2. Trigger Generation Pipeline Run in the background
-      await fetch(`/api/v1/projects/${projectId}/generate`, {
+      const genRes = await fetch(`/api/v1/projects/${projectId}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim() }),
+        body: JSON.stringify({ prompt: promptText.trim() }),
       });
+      const genData = await genRes.json();
+      const runId = genData?.runId;
 
-      // 3. Navigate into the Workspace
-      router.push(`/workspace/${projectId}`);
+      // 3. Navigate into the Workspace with runId
+      sessionStorage.removeItem('shipshape_pending_prompt');
+      const targetUrl = runId
+        ? `/workspace/${projectId}?runId=${runId}`
+        : `/workspace/${projectId}`;
+      router.push(targetUrl);
     } catch (err: any) {
       console.error('Failed to create project from hero:', err);
       setError(err.message || 'Something went wrong creating your project. Please try again.');
       setIsSubmitting(false);
     }
+  };
+
+  // Restore prompt if user just returned from sign-in
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const pending = sessionStorage.getItem('shipshape_pending_prompt');
+    if (pending) {
+      setPrompt(pending);
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('autostart') === 'true' && isSignedIn) {
+        sessionStorage.removeItem('shipshape_pending_prompt');
+        window.history.replaceState({}, '', '/');
+        triggerBuild(pending);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!prompt.trim() || isSubmitting) return;
+
+    if (isLoaded && !isSignedIn) {
+      sessionStorage.setItem('shipshape_pending_prompt', prompt.trim());
+      router.push('/sign-in?redirect_url=' + encodeURIComponent('/?autostart=true'));
+      return;
+    }
+
+    await triggerBuild(prompt);
   };
 
   return (
@@ -180,6 +223,12 @@ export default function HeroPromptBox() {
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-black" />
                 <span>Initializing Workspace...</span>
+              </>
+            ) : isLoaded && !isSignedIn ? (
+              <>
+                <LogIn className="w-4 h-4 text-emerald-600" />
+                <span>Sign in & start building</span>
+                <ArrowRight className="w-4 h-4 text-black" />
               </>
             ) : (
               <>

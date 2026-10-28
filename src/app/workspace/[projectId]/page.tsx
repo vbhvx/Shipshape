@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, use, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, use, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import ChatIterationPanel from '@/components/workspace/ChatIterationPanel';
 import PlanSpecPanel from '@/components/workspace/PlanSpecPanel';
@@ -36,6 +36,9 @@ function WorkspaceContent({
 }) {
   const { projectId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const paramRunId = searchParams.get('runId');
+  const activeEventSourceRef = useRef<EventSource | null>(null);
 
   const [project, setProject] = useState<Project | null>(null);
   const [versions, setVersions] = useState<ProjectVersion[]>([]);
@@ -59,6 +62,100 @@ function WorkspaceContent({
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const reloadVersionsAndFiles = async () => {
+    try {
+      const versRes = await fetch(`/api/v1/projects/${projectId}/versions`);
+      const versData = await versRes.json();
+      if (versData.success && versData.versions.length > 0) {
+        setVersions(versData.versions);
+        const latest = versData.versions[0];
+        if (latest) {
+          setActiveVersionId(latest.id);
+          const filesRes = await fetch(`/api/v1/projects/${projectId}/files?versionId=${latest.id}`);
+          const filesData = await filesRes.json();
+          if (filesData.success) {
+            setFiles(filesData.files);
+            setSelectedFile(filesData.files[0] || null);
+          }
+        }
+      }
+
+      // Also reload project to get updated status and activeVersionId
+      const projRes = await fetch(`/api/v1/projects/${projectId}`);
+      const projData = await projRes.json();
+      if (projData.success) {
+        setProject(projData.project);
+        if (projData.specification) {
+          setSpecification(projData.specification);
+        }
+        if (projData.activeRun) {
+          setActiveRun(projData.activeRun);
+        }
+      }
+
+      // Reload logs
+      const runToFetch = activeRun?.id || paramRunId;
+      if (runToFetch) {
+        const runRes = await fetch(`/api/v1/generation-runs/${runToFetch}`);
+        const runData = await runRes.json();
+        if (runData.success) {
+          setBuildResults(runData.buildResults || []);
+          setLogs(runData.buildLogs || []);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to reload workspace state:', err);
+    }
+  };
+
+  // Connect SSE for active run
+  const connectSSE = (runId: string) => {
+    if (activeEventSourceRef.current) {
+      activeEventSourceRef.current.close();
+    }
+
+    setIsProcessing(true);
+    const eventSource = new EventSource(`/api/v1/generation-runs/${runId}/events`);
+    activeEventSourceRef.current = eventSource;
+
+    eventSource.addEventListener('message', (e) => {
+      try {
+        const evt = JSON.parse(e.data);
+        setEvents((prev) => {
+          if (prev.some((existing) => existing.id === evt.id)) {
+            return prev;
+          }
+          return [...prev, evt];
+        });
+      } catch (err) {
+        console.error('SSE parse error:', err);
+      }
+    });
+
+    eventSource.addEventListener('status', (e) => {
+      try {
+        const st = JSON.parse(e.data);
+        setActiveRun((prev) => (prev ? { ...prev, status: st.status } : null));
+        if (['completed', 'failed', 'cancelled'].includes(st.status)) {
+          setIsProcessing(false);
+          reloadVersionsAndFiles();
+        }
+      } catch {}
+    });
+
+    eventSource.addEventListener('done', () => {
+      eventSource.close();
+      activeEventSourceRef.current = null;
+      setIsProcessing(false);
+      reloadVersionsAndFiles();
+    });
+
+    eventSource.addEventListener('error', () => {
+      eventSource.close();
+      activeEventSourceRef.current = null;
+    });
+  };
 
   // Initial load
   useEffect(() => {
@@ -90,6 +187,40 @@ function WorkspaceContent({
               }
             }
           }
+
+          // Check if there is an active run or runId from URL search param
+          const runIdToTrack = paramRunId || data.activeRun?.id;
+          if (runIdToTrack) {
+            try {
+              const runRes = await fetch(`/api/v1/generation-runs/${runIdToTrack}`);
+              const runData = await runRes.json();
+              if (runData.success && runData.run) {
+                setActiveRun(runData.run);
+                if (runData.events && runData.events.length > 0) {
+                  setEvents(runData.events);
+                }
+                if (runData.buildResults) {
+                  setBuildResults(runData.buildResults);
+                }
+                const isRunActive = [
+                  'queued',
+                  'planning',
+                  'generating',
+                  'validating',
+                  'building',
+                  'repairing',
+                  'starting',
+                ].includes(runData.run.status);
+
+                if (isRunActive) {
+                  setIsProcessing(true);
+                  connectSSE(runIdToTrack);
+                }
+              }
+            } catch (runErr) {
+              console.warn('Failed to load initial run details:', runErr);
+            }
+          }
         } else if (!data.success) {
           setError(data.error || 'Failed to load project');
         }
@@ -104,83 +235,72 @@ function WorkspaceContent({
     return () => {
       ignore = true;
     };
-  }, [projectId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, paramRunId]);
 
-  // Connect SSE for active run
-  const connectSSE = (runId: string) => {
-    setIsProcessing(true);
-    const eventSource = new EventSource(`/api/v1/generation-runs/${runId}/events`);
-
-    eventSource.addEventListener('message', (e) => {
-      try {
-        const evt = JSON.parse(e.data);
-        setEvents((prev) => [...prev, evt]);
-      } catch (err) {
-        console.error('SSE parse error:', err);
+  // Cleanup EventSource on unmount
+  useEffect(() => {
+    return () => {
+      if (activeEventSourceRef.current) {
+        activeEventSourceRef.current.close();
+        activeEventSourceRef.current = null;
       }
-    });
+    };
+  }, []);
 
-    eventSource.addEventListener('status', (e) => {
+  // Resilient fallback polling loop while processing
+  useEffect(() => {
+    if (!isProcessing || !activeRun?.id) return;
+
+    const interval = setInterval(async () => {
       try {
-        const st = JSON.parse(e.data);
-        setActiveRun((prev) => (prev ? { ...prev, status: st.status } : null));
-      } catch {}
-    });
-
-    eventSource.addEventListener('done', () => {
-      eventSource.close();
-      setIsProcessing(false);
-      // Reload project state to fetch new version and files
-      reloadVersionsAndFiles();
-    });
-
-    eventSource.addEventListener('error', () => {
-      eventSource.close();
-      setIsProcessing(false);
-    });
-  };
-
-  const reloadVersionsAndFiles = async () => {
-    try {
-      const versRes = await fetch(`/api/v1/projects/${projectId}/versions`);
-      const versData = await versRes.json();
-      if (versData.success) {
-        setVersions(versData.versions);
-        const latest = versData.versions[0];
-        if (latest) {
-          setActiveVersionId(latest.id);
-          const filesRes = await fetch(`/api/v1/projects/${projectId}/files?versionId=${latest.id}`);
-          const filesData = await filesRes.json();
-          if (filesData.success) {
-            setFiles(filesData.files);
+        const res = await fetch(`/api/v1/generation-runs/${activeRun.id}`);
+        const data = await res.json();
+        if (data.success && data.run) {
+          if (data.events && data.events.length > 0) {
+            setEvents(data.events);
+          }
+          setActiveRun(data.run);
+          if (data.buildResults) {
+            setBuildResults(data.buildResults);
+          }
+          if (['completed', 'failed', 'cancelled'].includes(data.run.status)) {
+            setIsProcessing(false);
+            if (activeEventSourceRef.current) {
+              activeEventSourceRef.current.close();
+              activeEventSourceRef.current = null;
+            }
+            reloadVersionsAndFiles();
           }
         }
+      } catch (err) {
+        console.warn('Run status poll check error:', err);
       }
+    }, 1500);
 
-      // Reload logs
-      if (activeRun) {
-        const runRes = await fetch(`/api/v1/generation-runs/${activeRun.id}`);
-        const runData = await runRes.json();
-        if (runData.success) {
-          setBuildResults(runData.buildResults || []);
-          setLogs(runData.buildLogs || []);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to reload workspace state:', err);
-    }
-  };
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProcessing, activeRun?.id]);
 
-  // Handle iterative modification prompt
+  // Handle iterative modification prompt (or initial generation if no base version yet)
   const handleSendMessage = async (text: string) => {
     if (isProcessing) return;
     setIsProcessing(true);
 
     try {
-      const res = await fetch(`/api/v1/projects/${projectId}/modify`, {
+      const hasBaseVersion = !!activeVersionId && versions.length > 0;
+      const endpoint = hasBaseVersion
+        ? `/api/v1/projects/${projectId}/modify`
+        : `/api/v1/projects/${projectId}/generate`;
+
+      const payload = hasBaseVersion
+        ? { instruction: text, baseVersionId: activeVersionId }
+        : { prompt: text };
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instruction: text, baseVersionId: activeVersionId }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
@@ -188,18 +308,19 @@ function WorkspaceContent({
       setActiveRun({
         id: data.runId,
         projectId,
-        runType: 'modification',
+        runType: hasBaseVersion ? 'modification' : 'generation',
         status: 'queued',
         modelProvider: 'deterministic',
-        modelIdentifier: 'gemini-1.5-pro',
+        modelIdentifier: 'deterministic-engine-v1',
         attemptCount: 1,
+        prompt: text,
         startedAt: new Date().toISOString(),
       });
 
       // Stream progress
       connectSSE(data.runId);
     } catch (err: any) {
-      alert(`Modification error: ${err.message}`);
+      alert(`Execution error: ${err.message}`);
       setIsProcessing(false);
     }
   };
@@ -430,7 +551,10 @@ function WorkspaceContent({
           {/* Right Panel Body */}
           <div className="flex-1 overflow-hidden">
             {rightTab === 'preview' && (
-              <LivePreviewPanel projectId={projectId} isRunning={project.status === 'running'} />
+              <LivePreviewPanel
+                projectId={projectId}
+                isRunning={project.status === 'running' || !!activeVersionId}
+              />
             )}
             {rightTab === 'code' && (
               <CodeInspectorPanel

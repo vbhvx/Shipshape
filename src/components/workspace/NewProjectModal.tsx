@@ -6,7 +6,7 @@ import { Sparkles, X, Layout, BarChart3, ShoppingBag, Users, ArrowRight, Loader2
 interface NewProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreated: (projectId: string) => void;
+  onCreated: (projectId: string, runId?: string) => void;
 }
 
 export default function NewProjectModal({
@@ -72,13 +72,14 @@ export default function NewProjectModal({
       const projectId = json.project.id;
 
       // 2. Generate Initial Plan & Start Generation Run
-      await fetch(`/api/v1/projects/${projectId}/generate`, {
+      const genRes = await fetch(`/api/v1/projects/${projectId}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: description.trim() }),
       });
+      const genData = await genRes.json();
 
-      onCreated(projectId);
+      onCreated(projectId, genData?.runId);
     } catch (err: any) {
       setError(err.message || 'An error occurred while creating the project.');
       setIsSubmitting(false);

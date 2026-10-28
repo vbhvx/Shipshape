@@ -420,6 +420,31 @@ export const prismaAdapter = {
     };
   },
 
+  async getLatestGenerationRun(projectId: string): Promise<GenerationRun | null> {
+    const r = await prisma.generationRun.findFirst({
+      where: { projectId },
+      orderBy: { startedAt: 'desc' },
+    });
+    if (!r) return null;
+    return {
+      id: r.id,
+      projectId: r.projectId,
+      baseVersionId: r.baseVersionId ?? undefined,
+      resultVersionId: r.resultVersionId ?? undefined,
+      runType: (r.runType as any) || 'generation',
+      status: (r.status as any) || 'queued',
+      modelProvider: (r.modelProvider as any) || 'deterministic',
+      modelIdentifier: r.modelIdentifier,
+      attemptCount: r.attemptCount,
+      prompt: r.prompt ?? undefined,
+      startedAt: r.startedAt.toISOString(),
+      finishedAt: r.finishedAt?.toISOString(),
+      errorCode: r.errorCode ?? undefined,
+      errorMessage: r.errorMessage ?? undefined,
+      usageMetadata: r.usageMetadata ? JSON.parse(r.usageMetadata) : undefined,
+    };
+  },
+
   async saveGenerationRun(run: GenerationRun): Promise<GenerationRun> {
     await prisma.generationRun.upsert({
       where: { id: run.id },

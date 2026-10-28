@@ -209,9 +209,9 @@ export function CartDrawer({ items, onCheckout }: { items: CartItem[]; onCheckou
     }
   };
 
-  const handleCreated = (projectId: string) => {
+  const handleCreated = (projectId: string, runId?: string) => {
     setIsModalOpen(false);
-    router.push(`/workspace/${projectId}`);
+    router.push(runId ? `/workspace/${projectId}?runId=${runId}` : `/workspace/${projectId}`);
   };
 
   const copySimulatedCode = () => {

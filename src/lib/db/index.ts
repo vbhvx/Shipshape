@@ -291,6 +291,14 @@ const jsonAdapter = {
     return s.generationRuns[runId] || null;
   },
 
+  async getLatestGenerationRun(projectId: string): Promise<GenerationRun | null> {
+    const s = await ensureDataStore();
+    const runs = Object.values(s.generationRuns).filter((r) => r.projectId === projectId);
+    if (runs.length === 0) return null;
+    runs.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+    return runs[0] || null;
+  },
+
   async saveGenerationRun(run: GenerationRun): Promise<GenerationRun> {
     const s = await ensureDataStore();
     s.generationRuns[run.id] = run;

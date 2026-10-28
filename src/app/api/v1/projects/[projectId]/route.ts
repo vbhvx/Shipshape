@@ -26,6 +26,7 @@ export async function GET(
     const versions = await db.listVersions(projectId);
     const spec = await db.getSpecification(projectId);
     const sandbox = await db.getSandboxSession(projectId);
+    const latestRun = await db.getLatestGenerationRun(projectId);
 
     return NextResponse.json({
       success: true,
@@ -34,6 +35,7 @@ export async function GET(
       latestVersion: versions[0] || null,
       versionsCount: versions.length,
       sandbox,
+      activeRun: latestRun,
     });
   } catch (err: unknown) {
     if (err instanceof AuthSessionError) {
