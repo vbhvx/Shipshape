@@ -163,6 +163,7 @@ function WorkspaceContent({
         const runData = await runRes.json();
         if (runData.success) {
           setBuildResults(runData.buildResults || []);
+          setLogs(runData.buildLogs || []);
         }
       }
     } catch (err) {

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { db } from '../../src/lib/db';
 import { createPlanFromPrompt } from '../../src/modules/planning/planning-engine';
 import { generateProjectFiles, modifyProjectFiles } from '../../src/modules/generation/generator';
@@ -121,5 +121,9 @@ describe('End-to-End Generation, Execution, Modification & Export Lifecycle', ()
     expect(exportResult.zipBuffer).toBeInstanceOf(Buffer);
     expect(exportResult.fileName).toContain('.zip');
     expect(exportResult.filesIncluded).toBeGreaterThanOrEqual(8);
+  });
+
+  afterAll(async () => {
+    await db.deleteProject(projectId, true);
   });
 });

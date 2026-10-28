@@ -7,6 +7,7 @@ export interface User {
   email: string;
   name: string;
   avatarUrl?: string;
+  clerkId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -283,6 +284,13 @@ export const CreateProjectSchema = z.object({
   description: z.string().min(1).max(2000),
   templateId: z.string().optional().default('nextjs-typescript'),
 });
+
+export const UpdateProjectSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().min(1).max(2000).optional(),
+  status: z.enum(['draft', 'planning', 'generating', 'ready', 'building', 'running', 'error', 'archived']).optional(),
+  activeVersionId: z.string().optional(),
+}).strict();
 
 export const PlanRequestSchema = z.object({
   prompt: z.string().min(3).max(5000),

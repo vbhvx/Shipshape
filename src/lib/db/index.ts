@@ -35,7 +35,6 @@ const DATA_FILE = path.join(DATA_DIR, 'store.json');
 
 // In-memory cache for ultra-fast queries
 let storeCache: DatabaseStore | null = null;
-let isInitializing = false;
 
 // Default demo user
 const DEFAULT_USER: User = {
@@ -50,38 +49,34 @@ const DEFAULT_USER: User = {
 let lastMtime = 0;
 
 async function ensureDataStore(): Promise<DatabaseStore> {
+  await fs.mkdir(DATA_DIR, { recursive: true });
   try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
-    try {
-      const stat = await fs.stat(DATA_FILE);
-      if (storeCache && stat.mtimeMs <= lastMtime) {
-        return storeCache;
-      }
-      const data = await fs.readFile(DATA_FILE, 'utf-8');
-      storeCache = JSON.parse(data) as DatabaseStore;
-      lastMtime = stat.mtimeMs;
+    const stat = await fs.stat(DATA_FILE);
+    if (storeCache && stat.mtimeMs <= lastMtime) {
       return storeCache;
-    } catch {
-      // Initialize with default structure
-      storeCache = {
-        users: { [DEFAULT_USER.id]: DEFAULT_USER },
-        projects: {},
-        specifications: {},
-        versions: {},
-        files: {},
-        generationRuns: {},
-        generationEvents: {},
-        sandboxSessions: {},
-        previewSessions: {},
-        buildResults: {},
-        buildLogs: {},
-        auditEvents: {},
-        idempotency: {},
-      };
-      await saveStore(storeCache);
     }
-  } finally {
-    isInitializing = false;
+    const data = await fs.readFile(DATA_FILE, 'utf-8');
+    storeCache = JSON.parse(data) as DatabaseStore;
+    lastMtime = stat.mtimeMs;
+    return storeCache;
+  } catch {
+    // Initialize with default structure
+    storeCache = {
+      users: { [DEFAULT_USER.id]: DEFAULT_USER },
+      projects: {},
+      specifications: {},
+      versions: {},
+      files: {},
+      generationRuns: {},
+      generationEvents: {},
+      sandboxSessions: {},
+      previewSessions: {},
+      buildResults: {},
+      buildLogs: {},
+      auditEvents: {},
+      idempotency: {},
+    };
+    await saveStore(storeCache);
   }
 
   return storeCache;
@@ -100,7 +95,9 @@ async function saveStore(store: DatabaseStore): Promise<void> {
   }
 }
 
-export const db = {
+import { prismaAdapter } from './prisma-adapter';
+
+const jsonAdapter = {
   // Users
   async getUser(id: string): Promise<User | null> {
     const s = await ensureDataStore();
@@ -114,6 +111,60 @@ export const db = {
       await saveStore(s);
     }
     return s.users[DEFAULT_USER.id];
+  },
+
+  async getUserByClerkId(clerkId: string): Promise<User | null> {
+    const s = await ensureDataStore();
+
+    return (
+      Object.values(s.users).find(
+        (user) => user.clerkId === clerkId
+      ) ?? null
+    );
+  },
+
+  async createUser(input: {
+    clerkId: string;
+    email: string;
+    name: string;
+    avatarUrl?: string;
+  }): Promise<User> {
+    const s = await ensureDataStore();
+
+    // Prevent duplicate Clerk identities.
+    const existingClerkUser = Object.values(s.users).find(
+      (user) => user.clerkId === input.clerkId
+    );
+
+    if (existingClerkUser) {
+      throw new Error("A user with this Clerk ID already exists");
+    }
+
+    // Emails are unique in the Prisma schema too.
+    const existingEmailUser = Object.values(s.users).find(
+      (user) => user.email.toLowerCase() === input.email.toLowerCase()
+    );
+
+    if (existingEmailUser) {
+      throw new Error("A user with this email already exists");
+    }
+
+    const now = new Date().toISOString();
+
+    const user: User = {
+      id: `usr_${crypto.randomUUID()}`,
+      clerkId: input.clerkId,
+      email: input.email,
+      name: input.name,
+      ...(input.avatarUrl ? { avatarUrl: input.avatarUrl } : {}),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    s.users[user.id] = user;
+    await saveStore(s);
+
+    return user;
   },
 
   // Projects
@@ -156,10 +207,17 @@ export const db = {
     return updated;
   },
 
-  async deleteProject(id: string): Promise<boolean> {
+  async deleteProject(id: string, hard = false): Promise<boolean> {
     const s = await ensureDataStore();
     if (!s.projects[id]) return false;
-    s.projects[id].archivedAt = new Date().toISOString();
+    if (hard) {
+      delete s.projects[id];
+      delete s.specifications[id];
+      delete s.sandboxSessions[id];
+      delete s.previewSessions[id];
+    } else {
+      s.projects[id].archivedAt = new Date().toISOString();
+    }
     await saveStore(s);
     return true;
   },
@@ -244,10 +302,64 @@ export const db = {
     const s = await ensureDataStore();
     const existing = s.generationRuns[runId];
     if (!existing) return null;
+
+    const terminalStatuses = ['completed', 'failed', 'cancelled'];
+    if (terminalStatuses.includes(existing.status)) {
+      // Terminal state protection: reject any mutation to an existing terminal run
+      return existing;
+    }
+
     const updated = { ...existing, ...updates };
     s.generationRuns[runId] = updated;
     await saveStore(s);
     return updated;
+  },
+
+  async publishVersionIfActive(
+    runId: string,
+    projectId: string,
+    version: ProjectVersion,
+    files: GeneratedFile[]
+  ): Promise<ProjectVersion | null> {
+    const s = await ensureDataStore();
+    const existingRun = s.generationRuns[runId];
+    if (!existingRun) return null;
+
+    const terminalStatuses = ['completed', 'failed', 'cancelled'];
+    if (terminalStatuses.includes(existingRun.status)) {
+      // If the run has been cancelled or has already terminated, abort publication atomically
+      return null;
+    }
+
+    const existingProject = s.projects[projectId];
+    if (!existingProject) return null;
+
+    // Atomically commit all publication state transitions in a single store mutation
+    // 1. Mark run completed with result version
+    existingRun.status = 'completed';
+    existingRun.resultVersionId = version.id;
+    existingRun.finishedAt = new Date().toISOString();
+
+    // 2. Save version snapshot
+    s.versions[version.id] = version;
+
+    // 3. Save files
+    for (const f of files) {
+      const key = `${projectId}:${version.id}:${f.path}`;
+      s.files[key] = {
+        ...f,
+        projectId,
+        versionId: version.id,
+      };
+    }
+
+    // 4. Set project active version and status
+    existingProject.activeVersionId = version.id;
+    existingProject.status = 'running';
+    existingProject.updatedAt = new Date().toISOString();
+
+    await saveStore(s);
+    return version;
   },
 
   // Generation Events
@@ -338,3 +450,26 @@ export const db = {
     await saveStore(s);
   },
 };
+
+function getActiveAdapter() {
+  if (process.env.DATABASE_URL) {
+    return prismaAdapter;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'DATABASE_URL is required in production environment. Refusing to fall back to local JSON store.'
+    );
+  }
+  return jsonAdapter;
+}
+
+export const db: typeof jsonAdapter = new Proxy({} as typeof jsonAdapter, {
+  get(_target, prop) {
+    const adapter = getActiveAdapter();
+    const value = (adapter as any)[prop];
+    if (typeof value === 'function') {
+      return value.bind(adapter);
+    }
+    return value;
+  },
+});

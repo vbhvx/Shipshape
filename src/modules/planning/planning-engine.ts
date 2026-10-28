@@ -23,7 +23,6 @@ export async function createPlanFromPrompt(
   const isKanban = lower.includes('kanban') || lower.includes('task') || lower.includes('todo') || lower.includes('board') || lower.includes('sprint');
   const isEcommerce = lower.includes('store') || lower.includes('shop') || lower.includes('cart') || lower.includes('product') || lower.includes('commerce') || lower.includes('fragrance');
   const isCrm = lower.includes('crm') || lower.includes('contact') || lower.includes('lead') || lower.includes('customer') || lower.includes('pipeline');
-  const isAnalytics = lower.includes('analytic') || lower.includes('dashboard') || lower.includes('metric') || lower.includes('chart') || lower.includes('kpi');
   const isWindOrWeather = lower.includes('wind') || lower.includes('weather') || lower.includes('forecast') || lower.includes('energy');
 
   // Interpret Routes

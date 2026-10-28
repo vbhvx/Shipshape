@@ -31,14 +31,12 @@ export async function exportProjectArchive(projectId: string, versionId?: string
   const rootFolderName = `${safeName}-v${version.versionNumber}`;
   const rootFolder = zip.folder(rootFolderName) || zip;
 
-  let totalBytes = 0;
   let fileCount = 0;
 
   for (const f of files) {
     // Scrub secrets from all source code before packing
     const safeContent = scrubSecrets(f.content);
     rootFolder.file(f.path, safeContent);
-    totalBytes += Buffer.byteLength(safeContent, 'utf-8');
     fileCount++;
   }
 

@@ -1,11 +1,12 @@
 // Prisma Schema for Shipshape AI-Powered Full-Stack Application Builder
+
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 model User {
@@ -16,6 +17,7 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   projects  Project[]
+  clerkId   String?   @unique
 
   @@map("users")
 }
@@ -50,7 +52,7 @@ model ProjectSpecification {
   projectId         String
   versionNumber     Int      @default(1)
   specificationJson String   // JSON serialized ProjectSpecification
-  planJson          String   // JSON serialized ApplicationPlan
+  planJson          String?   // JSON serialized ApplicationPlan
   schemaVersion     String   @default("1.0.0")
   createdAt         DateTime @default(now())
   project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -77,17 +79,23 @@ model ProjectVersion {
   @@map("project_versions")
 }
 
+
 model ProjectFile {
-  id        String          @id @default(uuid())
-  projectId String
-  versionId String?
-  path      String          // Relative path in project, e.g. "src/app/page.tsx"
-  content   String          // Source code content
-  sizeBytes Int             @default(0)
-  mimeType  String          @default("text/plain")
-  updatedAt DateTime        @default(now())
-  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  version   ProjectVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  id             String          @id @default(uuid())
+  projectId      String
+  versionId      String?
+  path           String
+  content        String
+  sizeBytes      Int             @default(0)
+  mimeType       String          @default("text/plain")
+  updatedAt      DateTime        @default(now())
+  responsibility String          @default("")
+  fileType       String          @default("lib")
+  isNew          Boolean         @default(false)
+  isModified     Boolean         @default(false)
+
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version        ProjectVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
 
   @@unique([projectId, versionId, path])
   @@index([projectId, path])
@@ -187,6 +195,7 @@ model BuildResult {
 
   @@index([generationRunId])
   @@map("build_results")
+  errorsJson      String?
 }
 
 model BuildLog {

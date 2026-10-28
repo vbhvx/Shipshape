@@ -39,7 +39,7 @@ export default function WorkspaceHeader({
       {/* Left: Brand & Navigation */}
       <div className="flex items-center gap-4">
         <Link
-          href="/"
+          href="/projects"
           className="flex items-center gap-2 text-zinc-400 hover:text-zinc-100 transition p-1.5 rounded-lg hover:bg-zinc-900 text-xs font-medium"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -49,14 +49,20 @@ export default function WorkspaceHeader({
         <div className="h-4 w-px bg-zinc-800" />
 
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center font-bold text-white text-xs shadow-sm shadow-indigo-500/40">
+          <div className="w-6 h-6 rounded-md bg-gradient-to-b from-zinc-800 to-zinc-950 border border-zinc-700/80 flex items-center justify-center font-black text-white text-xs shadow-sm shadow-black/40 select-none">
             S
           </div>
           <span className="font-semibold text-zinc-100 text-sm tracking-tight truncate max-w-[200px]">
             {project.name}
           </span>
           <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-900 text-zinc-300 border border-zinc-700/80">
-            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                project.status.toLowerCase() === 'running'
+                  ? 'bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]'
+                  : 'bg-zinc-400'
+              }`}
+            />
             {project.status.toUpperCase()}
           </span>
         </div>

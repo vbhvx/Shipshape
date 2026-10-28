@@ -22,7 +22,7 @@ export class BoundedRepairLoop {
     initialFiles: GeneratedFile[],
     failedChecks: BuildCheckResult[]
   ): Promise<RepairAttemptResult> {
-    let currentFiles = initialFiles.map((f) => ({ ...f }));
+    const currentFiles = initialFiles.map((f) => ({ ...f }));
     let attempts = 0;
 
     await db.addBuildLog(

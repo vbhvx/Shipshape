@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import {
+  requireAuth,
+  AuthSessionError,
+  getOwnedProject,
+} from '@/lib/auth/session';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ projectId: string; path?: string[] }> }
 ) {
   try {
+    const user = await requireAuth();
     const { projectId, path: subPath } = await params;
-    const project = await db.getProject(projectId);
+    const project = await getOwnedProject(projectId, user.id);
 
     if (!project) {
       return new NextResponse(renderPreviewError('Project not found', 'The requested application project does not exist.'), {
@@ -43,8 +49,17 @@ export async function GET(
         'Referrer-Policy': 'strict-origin-when-cross-origin',
       },
     });
-  } catch (err: any) {
-    return new NextResponse(renderPreviewError('Preview Render Error', err.message), {
+  } catch (err: unknown) {
+    if (err instanceof AuthSessionError) {
+      return new NextResponse(renderPreviewError('Authentication Required', err.message), {
+        status: err.status,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+
+    console.error('Preview render error:', err);
+
+    return new NextResponse(renderPreviewError('Preview Render Error', 'An unexpected error occurred while rendering the preview.'), {
       status: 500,
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });

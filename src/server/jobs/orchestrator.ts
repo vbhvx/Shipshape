@@ -1,11 +1,10 @@
 import { db } from '@/lib/db';
-import { ApplicationPlan, GeneratedFile, ProjectVersion } from '@/types';
+import { ApplicationPlan, ProjectVersion } from '@/types';
 import { generateProjectFiles, modifyProjectFiles } from '@/modules/generation/generator';
 import { SandboxManager } from '@/modules/sandbox/sandbox-manager';
 import { BoundedRepairLoop } from '@/modules/repair/repair-loop';
-import { computeVersionDiff } from '@/modules/versioning/diff-engine';
 
-// In-memory set of cancelled run IDs
+// In-memory set of cancelled run IDs for local optimization
 const cancelledRuns = new Set<string>();
 
 export class ProjectOrchestrator {
@@ -13,8 +12,20 @@ export class ProjectOrchestrator {
     cancelledRuns.add(runId);
   }
 
-  static isCancelled(runId: string): boolean {
-    return cancelledRuns.has(runId);
+  /**
+   * Asynchronously queries the durable database to determine whether a run has been cancelled.
+   * Relies on PostgreSQL (or active DB adapter) as authoritative source of truth.
+   */
+  static async isCancelled(runId: string): Promise<boolean> {
+    if (cancelledRuns.has(runId)) {
+      return true;
+    }
+    const run = await db.getGenerationRun(runId);
+    if (run?.status === 'cancelled') {
+      cancelledRuns.add(runId);
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -26,8 +37,7 @@ export class ProjectOrchestrator {
     plan: ApplicationPlan
   ): Promise<{ success: boolean; versionId?: string; error?: string }> {
     try {
-      if (this.isCancelled(runId)) {
-        await this.markCancelled(runId);
+      if (await this.isCancelled(runId)) {
         return { success: false, error: 'Run was cancelled by user' };
       }
 
@@ -41,7 +51,7 @@ export class ProjectOrchestrator {
       });
       await db.addBuildLog(runId, 'system', '[ORCHESTRATOR] Initializing structured application generation...');
 
-      if (this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
+      if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
 
       // Step 2: Code Generation
       await db.updateGenerationRun(runId, { status: 'generating' });
@@ -63,7 +73,7 @@ export class ProjectOrchestrator {
         });
       }
 
-      if (this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
+      if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
 
       // Step 3: Manifest & Workspace Validation
       await db.updateGenerationRun(runId, { status: 'validating' });
@@ -74,19 +84,21 @@ export class ProjectOrchestrator {
         message: 'Validating manifest integrity and sandbox boundaries',
       });
 
-      // Step 4: Sandbox Build Execution
+      // Step 4: Sandbox Build & Syntax Execution
       await db.updateGenerationRun(runId, { status: 'building' });
       await db.addGenerationEvent(runId, {
         generationRunId: runId,
         sequenceNumber: 30,
         eventType: 'step_started',
-        message: 'Executing isolated TypeScript check and Turbopack build',
+        message: 'Executing manifest integrity and JSON syntax verification',
       });
 
-      let validation = await SandboxManager.validateAndBuild(projectId, runId, generatedFiles);
+      const validation = await SandboxManager.validateAndBuild(projectId, runId, generatedFiles);
       let finalFiles = generatedFiles;
 
       if (!validation.passed) {
+        if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
+
         await db.updateGenerationRun(runId, { status: 'repairing' });
         const repairResult = await BoundedRepairLoop.attemptRepair(
           projectId,
@@ -95,6 +107,8 @@ export class ProjectOrchestrator {
           validation.results
         );
         if (!repairResult.success) {
+          if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
+
           await db.updateGenerationRun(runId, {
             status: 'failed',
             finishedAt: new Date().toISOString(),
@@ -106,7 +120,7 @@ export class ProjectOrchestrator {
         finalFiles = repairResult.fixedFiles;
       }
 
-      if (this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
+      if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
 
       // Step 5: Start Sandbox Runtime & Live Preview
       await db.updateGenerationRun(runId, { status: 'starting' });
@@ -114,7 +128,7 @@ export class ProjectOrchestrator {
         generationRunId: runId,
         sequenceNumber: 40,
         eventType: 'step_started',
-        message: 'Spinning up isolated sandbox server and preview proxy',
+        message: 'Initializing sandbox session and preview route',
       });
 
       const sandboxSession = await SandboxManager.startSandbox(projectId, finalFiles);
@@ -124,11 +138,11 @@ export class ProjectOrchestrator {
         generationRunId: runId,
         sequenceNumber: 50,
         eventType: 'preview_ready',
-        message: 'Live preview is now running and isolated',
+        message: 'Live preview session is active',
         metadata: { previewUrl: sandboxSession.hostUrl, port: sandboxSession.port },
       });
 
-      // Step 6: Create Version Snapshot & Persist Files
+      // Step 6: Atomically publish version snapshot, persist files, and complete run
       const versionId = `ver_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const newVersion: ProjectVersion = {
         id: versionId,
@@ -140,18 +154,12 @@ export class ProjectOrchestrator {
         createdAt: new Date().toISOString(),
       };
 
-      await db.saveVersion(newVersion);
-      await db.saveFiles(projectId, versionId, finalFiles);
-      await db.updateProject(projectId, {
-        activeVersionId: versionId,
-        status: 'running',
-      });
+      const published = await db.publishVersionIfActive(runId, projectId, newVersion, finalFiles);
 
-      await db.updateGenerationRun(runId, {
-        status: 'completed',
-        resultVersionId: versionId,
-        finishedAt: new Date().toISOString(),
-      });
+      if (!published) {
+        // Publication was rejected because the run was cancelled or reached terminal state
+        return { success: false, error: 'Run was cancelled by user' };
+      }
 
       await db.addGenerationEvent(runId, {
         generationRunId: runId,
@@ -162,6 +170,10 @@ export class ProjectOrchestrator {
 
       return { success: true, versionId };
     } catch (err: any) {
+      if (await this.isCancelled(runId)) {
+        return { success: false, error: 'Run was cancelled by user' };
+      }
+
       console.error(`Orchestrator error for run ${runId}:`, err);
       await db.updateGenerationRun(runId, {
         status: 'failed',
@@ -183,6 +195,10 @@ export class ProjectOrchestrator {
     baseVersionId?: string
   ): Promise<{ success: boolean; versionId?: string; error?: string }> {
     try {
+      if (await this.isCancelled(runId)) {
+        return { success: false, error: 'Run was cancelled by user' };
+      }
+
       const project = await db.getProject(projectId);
       if (!project) throw new Error('Project not found');
 
@@ -201,8 +217,12 @@ export class ProjectOrchestrator {
         message: `Analyzing instruction: "${instruction}"`,
       });
 
+      if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
+
       // Targeted modification
       const { modifiedFiles, changeSummary } = await modifyProjectFiles(baseFiles, instruction);
+
+      if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
 
       await db.updateGenerationRun(runId, { status: 'validating' });
       await db.addGenerationEvent(runId, {
@@ -218,6 +238,8 @@ export class ProjectOrchestrator {
       let finalFiles = modifiedFiles;
 
       if (!validation.passed) {
+        if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
+
         await db.updateGenerationRun(runId, { status: 'repairing' });
         const repairResult = await BoundedRepairLoop.attemptRepair(
           projectId,
@@ -226,6 +248,8 @@ export class ProjectOrchestrator {
           validation.results
         );
         if (!repairResult.success) {
+          if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
+
           await db.updateGenerationRun(runId, {
             status: 'failed',
             finishedAt: new Date().toISOString(),
@@ -237,10 +261,12 @@ export class ProjectOrchestrator {
         finalFiles = repairResult.fixedFiles;
       }
 
+      if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
+
       // Update Sandbox
       await SandboxManager.startSandbox(projectId, finalFiles);
 
-      // Save New Version
+      // Atomically publish modified version, persist files, and complete run
       const newVersionId = `ver_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const newVersion: ProjectVersion = {
         id: newVersionId,
@@ -253,18 +279,12 @@ export class ProjectOrchestrator {
         createdAt: new Date().toISOString(),
       };
 
-      await db.saveVersion(newVersion);
-      await db.saveFiles(projectId, newVersionId, finalFiles);
-      await db.updateProject(projectId, {
-        activeVersionId: newVersionId,
-        status: 'running',
-      });
+      const published = await db.publishVersionIfActive(runId, projectId, newVersion, finalFiles);
 
-      await db.updateGenerationRun(runId, {
-        status: 'completed',
-        resultVersionId: newVersionId,
-        finishedAt: new Date().toISOString(),
-      });
+      if (!published) {
+        // Publication was rejected because the run was cancelled or reached terminal state
+        return { success: false, error: 'Run was cancelled by user' };
+      }
 
       await db.addGenerationEvent(runId, {
         generationRunId: runId,
@@ -275,6 +295,10 @@ export class ProjectOrchestrator {
 
       return { success: true, versionId: newVersionId };
     } catch (err: any) {
+      if (await this.isCancelled(runId)) {
+        return { success: false, error: 'Run was cancelled by user' };
+      }
+
       console.error(`Modification error for run ${runId}:`, err);
       await db.updateGenerationRun(runId, {
         status: 'failed',
@@ -283,18 +307,5 @@ export class ProjectOrchestrator {
       });
       return { success: false, error: err.message };
     }
-  }
-
-  private static async markCancelled(runId: string): Promise<void> {
-    await db.updateGenerationRun(runId, {
-      status: 'cancelled',
-      finishedAt: new Date().toISOString(),
-    });
-    await db.addGenerationEvent(runId, {
-      generationRunId: runId,
-      sequenceNumber: 999,
-      eventType: 'error',
-      message: 'Run was cancelled by user',
-    });
   }
 }

@@ -117,7 +117,7 @@ Shipshape/
 │   └── integration/            # Full end-to-end generation & export test
 ├── .env.example                # Environment variables template
 ├── eslint.config.mjs           # ESLint configuration
-├── vitest.config.ts            # Vitest runner configuration
+├── vitest.config.mts           # Vitest runner configuration
 └── package.json                # Project dependencies and scripts
 ```
 
@@ -148,7 +148,7 @@ npm test
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser. The platform will automatically seed an initial showcase project (**TaskFlow Pro**) ready for immediate inspection, previewing, and editing.
+Open [http://localhost:3000](http://localhost:3000) in your browser. The platform will automatically seed realistic showcase projects ready for immediate inspection, previewing, and editing (including **PulseStream Cloud Observability**, **Kroma Creative Asset Studio**, **AuraCraft Olfactory Fragrances**, and **Veloce Capital Deal Pipeline**).
 
 ---
 
@@ -212,6 +212,7 @@ npm run build
 - `tests/unit/specification.test.ts`: Requirement extraction, route planning, data entity modeling.
 - `tests/unit/diff.test.ts`: Line-by-line additions, deletions, and hunks computation.
 - `tests/unit/repair-loop.test.ts`: Bounded retry loop (max 3 attempts) and automated syntax repair.
+- `tests/unit/api-schemas.test.ts`: Zod schema validation for project creation, modification, version restore, and strict payload filtering.
 - `tests/integration/generation-workflow.test.ts`: Full end-to-end lifecycle from prompt to preview, iterative modification, diff verification, version restoration, and zip export.
 
 ---

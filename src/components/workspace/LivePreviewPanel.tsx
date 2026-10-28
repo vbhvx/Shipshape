@@ -8,7 +8,6 @@ import {
   RotateCw,
   ExternalLink,
   Shield,
-  Maximize2,
 } from 'lucide-react';
 
 interface LivePreviewPanelProps {
@@ -57,6 +56,11 @@ export default function LivePreviewPanel({
           </button>
 
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-zinc-950 border border-zinc-800 text-[11px] font-mono text-zinc-400 max-w-sm truncate">
+            <span
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                isRunning ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'
+              }`}
+            />
             <span className="text-zinc-200 font-bold">https://</span>
             <span className="text-zinc-300">sandbox-{projectId.slice(0, 8)}.shipshape.run</span>
           </div>
