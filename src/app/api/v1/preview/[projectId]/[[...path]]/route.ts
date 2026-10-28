@@ -6,6 +6,7 @@ import {
   getOwnedProject,
 } from '@/lib/auth/session';
 import { inferDomain } from '@/modules/planning/domain-catalog';
+import { cleanDisplayTitle } from '@/lib/project-utils';
 
 export async function GET(
   req: NextRequest,
@@ -78,15 +79,16 @@ function renderGeneratedPreviewApp(
   const isAnalytics = route === '/analytics';
   const isSettings = route === '/settings';
 
+  const cleanName = cleanDisplayTitle(appName);
   const domain = inferDomain(spec?.description || appName, appName);
-  const brandInitial = (appName || 'A').trim().charAt(0).toUpperCase();
+  const brandInitial = (cleanName || 'A').trim().charAt(0).toUpperCase();
 
   return `<!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(appName)} — Live Preview</title>
+  <title>${escapeHtml(cleanName)} — Interactive Preview</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -116,7 +118,7 @@ function renderGeneratedPreviewApp(
           <div class="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-white text-xs shadow-md">
             ${brandInitial}
           </div>
-          <span class="font-bold text-zinc-100 tracking-tight text-sm">${escapeHtml(appName)}</span>
+          <span class="font-bold text-zinc-100 tracking-tight text-sm">${escapeHtml(cleanName)}</span>
         </a>
         <nav class="flex items-center gap-1 text-xs">
           <a href="?route=/" class="px-3 py-1.5 rounded-md ${!isExplore && !isAnalytics && !isSettings ? 'bg-zinc-800 text-white font-medium shadow-sm' : 'text-zinc-400 hover:text-zinc-200'}">
@@ -136,7 +138,7 @@ function renderGeneratedPreviewApp(
       <div class="flex items-center gap-2">
         <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800/80">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          Ready · Live Sandbox
+          Ready · Interactive Preview
         </span>
       </div>
     </div>
@@ -333,6 +335,14 @@ function renderDomainHome(name: string, desc: string | undefined, domain: any): 
   const isFinance = domain.domainId === 'finance';
   const isEcommerce = domain.domainId === 'ecommerce';
 
+  const cleanName = cleanDisplayTitle(name);
+  const isDuplicate =
+    !desc ||
+    desc.trim().toLowerCase() === name.trim().toLowerCase() ||
+    desc.trim().toLowerCase() === cleanName.trim().toLowerCase() ||
+    /^(build|create|generate|make|develop)\s+/i.test(desc.trim());
+  const displayDesc = isDuplicate ? domain.domainSubtitle : desc;
+
   return `
     <!-- Top Welcome Banner -->
     <div class="p-6 rounded-2xl bg-gradient-to-r from-zinc-900 via-zinc-900 to-zinc-950 border border-zinc-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -342,8 +352,8 @@ function renderDomainHome(name: string, desc: string | undefined, domain: any): 
             ${escapeHtml(domain.domainTitle)}
           </span>
         </div>
-        <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">${escapeHtml(name)}</h1>
-        <p class="text-xs sm:text-sm text-zinc-400 mt-1 max-w-2xl">${escapeHtml(desc || domain.domainSubtitle)}</p>
+        <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">${escapeHtml(cleanName)}</h1>
+        <p class="text-xs sm:text-sm text-zinc-400 mt-1 max-w-2xl">${escapeHtml(displayDesc)}</p>
       </div>
       <div class="flex gap-2">
         <a href="?route=/explore" class="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold shadow-lg shadow-white/10 transition">

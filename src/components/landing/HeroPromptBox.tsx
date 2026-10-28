@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { Sparkles, ArrowRight, Loader2, Layout, Users, ShoppingBag, LogIn } from 'lucide-react';
+import { deriveProjectName } from '@/lib/project-utils';
 
 interface PromptChip {
   id: string;
@@ -61,13 +62,7 @@ export default function HeroPromptBox() {
     setIsSubmitting(true);
     setError(null);
 
-    const finalName =
-      (customName || projectName).trim() ||
-      promptText
-        .trim()
-        .slice(0, 24)
-        .replace(/[^a-zA-Z0-9 ]/g, '') ||
-      'New Project';
+    const finalName = deriveProjectName(promptText, customName || projectName);
 
     try {
       // 1. Create Project

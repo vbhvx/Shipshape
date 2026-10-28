@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Show, UserButton, useAuth } from '@clerk/nextjs';
 import { Project } from '@/types';
+import { deriveProjectName } from '@/lib/project-utils';
 import {
   Sparkles,
   Send,
@@ -54,13 +55,7 @@ export default function ApplicationsChatPage() {
     setIsSubmitting(true);
     setError('');
 
-    const finalName =
-      (customName || projectName).trim() ||
-      promptText
-        .trim()
-        .slice(0, 24)
-        .replace(/[^a-zA-Z0-9 ]/g, '') ||
-      'New Project';
+    const finalName = deriveProjectName(promptText, customName || projectName);
 
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -582,7 +577,9 @@ export default function ApplicationsChatPage() {
                         {p.name}
                       </h4>
                       <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
-                        {p.description}
+                        {p.description && p.description.trim().toLowerCase() === p.name.trim().toLowerCase()
+                          ? `App: "${p.description}"`
+                          : p.description}
                       </p>
                     </div>
 
