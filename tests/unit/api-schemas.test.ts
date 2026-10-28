@@ -107,12 +107,21 @@ describe('API Request Validation Schemas', () => {
       ).toBe(true);
     });
 
+    it('accepts gemini as a supported model provider', () => {
+      expect(
+        GenerateRequestSchema.safeParse({
+          prompt: 'Build a customer feedback portal with triage',
+          modelProvider: 'gemini',
+        }).success
+      ).toBe(true);
+    });
+
     it('rejects empty requests and unavailable provider labels', () => {
       expect(GenerateRequestSchema.safeParse({}).success).toBe(false);
       expect(
         GenerateRequestSchema.safeParse({
           prompt: 'Build a dashboard',
-          modelProvider: 'gemini',
+          modelProvider: 'openai',
         }).success
       ).toBe(false);
     });

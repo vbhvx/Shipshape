@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ProjectOrchestrator } from '@/server/jobs/orchestrator';
 import { ModifyRequestSchema, GenerationRun } from '@/types';
+import { isGeminiConfigured } from '@/modules/ai/gemini-provider';
 import {
   requireAuth,
   AuthSessionError,
@@ -69,14 +70,17 @@ export async function POST(
       .toString(36)
       .substring(2, 7)}`;
 
+    const chosenProvider = isGeminiConfigured() ? 'gemini' : 'deterministic';
+    const chosenIdentifier = chosenProvider === 'gemini' ? 'gemini-2.0-flash' : 'deterministic-engine-v1';
+
     const newRun: GenerationRun = {
       id: runId,
       projectId,
       baseVersionId,
       runType: 'modification',
       status: 'queued',
-      modelProvider: 'deterministic',
-      modelIdentifier: 'deterministic-engine-v1',
+      modelProvider: chosenProvider,
+      modelIdentifier: chosenIdentifier,
       attemptCount: 1,
       prompt: parsed.data.instruction,
       startedAt: new Date().toISOString(),

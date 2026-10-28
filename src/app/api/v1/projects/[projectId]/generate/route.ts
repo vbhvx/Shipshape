@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { createPlanFromPrompt } from '@/modules/planning/planning-engine';
 import { ProjectOrchestrator } from '@/server/jobs/orchestrator';
 import { ApplicationPlan, GenerateRequestSchema, GenerationRun } from '@/types';
+import { isGeminiConfigured } from '@/modules/ai/gemini-provider';
 import {
   requireAuth,
   AuthSessionError,
@@ -80,13 +81,16 @@ export async function POST(
       .toString(36)
       .substring(2, 7)}`;
 
+    const chosenProvider = parsed.data.modelProvider || (isGeminiConfigured() ? 'gemini' : 'deterministic');
+    const chosenIdentifier = chosenProvider === 'gemini' ? 'gemini-2.0-flash' : 'deterministic-engine-v1';
+
     const newRun: GenerationRun = {
       id: runId,
       projectId,
       runType: 'generation',
       status: 'queued',
-      modelProvider: 'deterministic',
-      modelIdentifier: 'deterministic-engine-v1',
+      modelProvider: chosenProvider,
+      modelIdentifier: chosenIdentifier,
       attemptCount: 1,
       prompt: parsed.data.prompt || project.description,
       startedAt: new Date().toISOString(),

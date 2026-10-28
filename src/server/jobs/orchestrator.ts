@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { ApplicationPlan, ProjectVersion } from '@/types';
 import { generateProjectFiles, modifyProjectFiles } from '@/modules/generation/generator';
+import { GeminiProvider, isGeminiConfigured } from '@/modules/ai/gemini-provider';
 import { SandboxManager } from '@/modules/sandbox/sandbox-manager';
 import { BoundedRepairLoop } from '@/modules/repair/repair-loop';
 
@@ -62,7 +63,29 @@ export class ProjectOrchestrator {
         message: 'Synthesizing multi-file Next.js application codebase',
       });
 
-      const generatedFiles = await generateProjectFiles(plan, plan.specification);
+      const currentRun = await db.getGenerationRun(runId);
+      const useGemini = currentRun?.modelProvider === 'gemini' || (currentRun?.modelProvider !== 'deterministic' && isGeminiConfigured());
+
+      let generatedFiles;
+      if (useGemini) {
+        const aiResult = await GeminiProvider.generateProject(
+          plan,
+          plan.specification,
+          async (msg, level) => {
+            await db.addBuildLog(runId, level || 'stdout', msg);
+          }
+        );
+        generatedFiles = aiResult.files;
+        await db.updateGenerationRun(runId, {
+          modelProvider: aiResult.modelProvider,
+          modelIdentifier: aiResult.modelIdentifier,
+          usageMetadata: aiResult.usageMetadata,
+          errorCode: aiResult.errorCode,
+        });
+      } else {
+        generatedFiles = await generateProjectFiles(plan, plan.specification);
+      }
+
       for (const f of generatedFiles) {
         await db.addGenerationEvent(runId, {
           generationRunId: runId,
@@ -227,7 +250,34 @@ export class ProjectOrchestrator {
       if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
 
       // Targeted modification
-      const { modifiedFiles, changeSummary } = await modifyProjectFiles(baseFiles, instruction);
+      const currentRun = await db.getGenerationRun(runId);
+      const useGemini = currentRun?.modelProvider === 'gemini' || (currentRun?.modelProvider !== 'deterministic' && isGeminiConfigured());
+
+      let modifiedFiles;
+      let changeSummary;
+
+      if (useGemini) {
+        const aiResult = await GeminiProvider.modifyProject(
+          baseFiles,
+          instruction,
+          null,
+          async (msg, level) => {
+            await db.addBuildLog(runId, level || 'stdout', msg);
+          }
+        );
+        modifiedFiles = aiResult.files;
+        changeSummary = aiResult.summary || instruction;
+        await db.updateGenerationRun(runId, {
+          modelProvider: aiResult.modelProvider,
+          modelIdentifier: aiResult.modelIdentifier,
+          usageMetadata: aiResult.usageMetadata,
+          errorCode: aiResult.errorCode,
+        });
+      } else {
+        const mod = await modifyProjectFiles(baseFiles, instruction);
+        modifiedFiles = mod.modifiedFiles;
+        changeSummary = mod.changeSummary;
+      }
 
       if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
 

@@ -193,6 +193,9 @@ export interface GenerationRun {
     tokens?: number;
     filesCount?: number;
     durationMs?: number;
+    promptTokens?: number;
+    candidatesTokens?: number;
+    totalTokens?: number;
   };
 }
 
@@ -301,7 +304,7 @@ export const GenerateRequestSchema = z.object({
   // Plans are generated server-side today. Keep this optional for backwards
   // compatibility with callers that already have a plan, but reject scalars.
   plan: z.object({}).passthrough().optional(),
-  modelProvider: z.literal('deterministic').optional(),
+  modelProvider: z.enum(['gemini', 'deterministic']).optional(),
 }).refine((value) => Boolean(value.prompt || value.plan), {
   message: 'Provide a build prompt or a structured plan',
 });
