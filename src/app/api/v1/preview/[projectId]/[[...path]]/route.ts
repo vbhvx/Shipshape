@@ -5,6 +5,7 @@ import {
   AuthSessionError,
   getOwnedProject,
 } from '@/lib/auth/session';
+import { inferDomain } from '@/modules/planning/domain-catalog';
 
 export async function GET(
   req: NextRequest,
@@ -24,7 +25,7 @@ export async function GET(
 
     if (!project.activeVersionId) {
       return new NextResponse(
-        renderPreviewPending(project.name, 'Application is waiting for initial generation and build.'),
+        renderPreviewPending(project.name, 'Application is synthesizing codebase and sandbox preview.'),
         {
           status: 200,
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
@@ -38,7 +39,7 @@ export async function GET(
     const relativeRoute = subPath ? `/${subPath.join('/')}` : '/';
 
     // Route matching for the preview
-    const html = renderGeneratedPreviewApp(project.name, relativeRoute, files, spec);
+    const html = renderGeneratedPreviewApp(project.name, relativeRoute, files, spec, projectId);
 
     return new NextResponse(html, {
       status: 200,
@@ -70,11 +71,15 @@ function renderGeneratedPreviewApp(
   appName: string,
   route: string,
   files: any[],
-  spec: any
+  spec: any,
+  projectId: string
 ): string {
   const isExplore = route === '/explore';
   const isAnalytics = route === '/analytics';
   const isSettings = route === '/settings';
+
+  const domain = inferDomain(spec?.description || appName, appName);
+  const brandInitial = (appName || 'A').trim().charAt(0).toUpperCase();
 
   return `<!DOCTYPE html>
 <html lang="en" class="dark">
@@ -89,7 +94,7 @@ function renderGeneratedPreviewApp(
       theme: {
         extend: {
           colors: {
-            brand: { 500: '#6366f1', 600: '#4f46e5' }
+            brand: { 500: '${domain.accentHex}', 600: '${domain.accentHex}' }
           }
         }
       }
@@ -102,28 +107,36 @@ function renderGeneratedPreviewApp(
     ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
   </style>
 </head>
-<body class="min-h-screen flex flex-col bg-zinc-950 text-zinc-100 antialiased">
-  <!-- Preview App Header -->
+<body class="min-h-screen flex flex-col bg-zinc-950 text-zinc-100 antialiased selection:bg-emerald-500 selection:text-black">
+  <!-- Dynamic Preview Header with App Brand Initial -->
   <header class="border-b border-zinc-800 bg-zinc-950/90 backdrop-blur sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center gap-6">
-        <a href="?route=/" class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white text-xs shadow-md shadow-indigo-500/30">
-            S
+        <a href="?route=/" class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-white text-xs shadow-md">
+            ${brandInitial}
           </div>
-          <span class="font-semibold text-zinc-100 tracking-tight text-sm">${escapeHtml(appName)}</span>
+          <span class="font-bold text-zinc-100 tracking-tight text-sm">${escapeHtml(appName)}</span>
         </a>
         <nav class="flex items-center gap-1 text-xs">
-          <a href="?route=/" class="px-3 py-1.5 rounded-md ${!isExplore && !isAnalytics && !isSettings ? 'bg-zinc-800 text-indigo-400 font-medium' : 'text-zinc-400 hover:text-zinc-200'}">Overview</a>
-          <a href="?route=/explore" class="px-3 py-1.5 rounded-md ${isExplore ? 'bg-zinc-800 text-indigo-400 font-medium' : 'text-zinc-400 hover:text-zinc-200'}">Explorer</a>
-          <a href="?route=/analytics" class="px-3 py-1.5 rounded-md ${isAnalytics ? 'bg-zinc-800 text-indigo-400 font-medium' : 'text-zinc-400 hover:text-zinc-200'}">Analytics</a>
-          <a href="?route=/settings" class="px-3 py-1.5 rounded-md ${isSettings ? 'bg-zinc-800 text-indigo-400 font-medium' : 'text-zinc-400 hover:text-zinc-200'}">Settings</a>
+          <a href="?route=/" class="px-3 py-1.5 rounded-md ${!isExplore && !isAnalytics && !isSettings ? 'bg-zinc-800 text-white font-medium shadow-sm' : 'text-zinc-400 hover:text-zinc-200'}">
+            ${escapeHtml(domain.routes[0]?.name || 'Overview')}
+          </a>
+          <a href="?route=/explore" class="px-3 py-1.5 rounded-md ${isExplore ? 'bg-zinc-800 text-white font-medium shadow-sm' : 'text-zinc-400 hover:text-zinc-200'}">
+            ${escapeHtml(domain.routes[1]?.name || 'Explorer')}
+          </a>
+          <a href="?route=/analytics" class="px-3 py-1.5 rounded-md ${isAnalytics ? 'bg-zinc-800 text-white font-medium shadow-sm' : 'text-zinc-400 hover:text-zinc-200'}">
+            ${escapeHtml(domain.routes[2]?.name || 'Analytics')}
+          </a>
+          <a href="?route=/settings" class="px-3 py-1.5 rounded-md ${isSettings ? 'bg-zinc-800 text-white font-medium shadow-sm' : 'text-zinc-400 hover:text-zinc-200'}">
+            ${escapeHtml(domain.routes[3]?.name || 'Settings')}
+          </a>
         </nav>
       </div>
       <div class="flex items-center gap-2">
-        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-950 text-emerald-400 border border-emerald-800/60">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800/80">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          Live Sandbox
+          Ready · Live Sandbox
         </span>
       </div>
     </div>
@@ -133,269 +146,408 @@ function renderGeneratedPreviewApp(
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
     ${
       isExplore
-        ? renderExploreContent()
+        ? renderDomainExplorer(domain)
         : isAnalytics
-        ? renderAnalyticsContent()
+        ? renderDomainAnalytics(domain)
         : isSettings
-        ? renderSettingsContent(appName)
-        : renderHomeContent(appName, spec?.description)
+        ? renderDomainSettings(appName, domain, projectId)
+        : renderDomainHome(appName, spec?.description, domain)
     }
   </main>
 
   <script>
-    // In-browser preview interactivity
-    const STORAGE_KEY = 'shipshape_sandbox_items';
-    const DEFAULT_ITEMS = [
-      { id: '1', title: 'User Authentication & JWT Tokens', category: 'Core', status: 'done', priority: 'high', value: 1200, assignee: 'Alex R.' },
-      { id: '2', title: 'Data Explorer Table & CSV Export', category: 'UI', status: 'in_progress', priority: 'urgent', value: 2400, assignee: 'Sarah C.' },
-      { id: '3', title: 'Automated Diagnostic Error Recovery', category: 'Agent', status: 'done', priority: 'medium', value: 850, assignee: 'Maya L.' },
-      { id: '4', title: 'PostgreSQL Migration Architecture', category: 'Backend', status: 'todo', priority: 'medium', value: 1600, assignee: 'John D.' }
-    ];
+    // Prompt-aware interactive client state manager
+    const STORAGE_KEY = 'shipshape_sandbox_${projectId}_v2';
+    const DEFAULT_SEED = ${JSON.stringify(domain.seedItems)};
+    const DOMAIN_TYPE = '${domain.domainId}';
 
     function loadItems() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : DEFAULT_ITEMS;
+        return raw ? JSON.parse(raw) : DEFAULT_SEED;
       } catch (e) {
-        return DEFAULT_ITEMS;
+        return DEFAULT_SEED;
       }
     }
 
     function saveItems(items) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-      location.reload();
-    }
-
-    function createRecord() {
-      const title = prompt('Enter item title:');
-      if (!title) return;
-      const category = prompt('Enter category:', 'Feature') || 'Feature';
-      const items = loadItems();
-      items.unshift({
-        id: Date.now().toString(),
-        title,
-        category,
-        status: 'todo',
-        priority: 'medium',
-        value: 500,
-        assignee: 'Current User'
-      });
-      saveItems(items);
-    }
-
-    function deleteRecord(id) {
-      if (confirm('Delete this record?')) {
-        const items = loadItems().filter(i => i.id !== id);
-        saveItems(items);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+        renderApp();
+      } catch (e) {
+        console.error('Failed to save sandbox storage:', e);
       }
+    }
+
+    // Toggle todo task completion
+    function toggleTodo(id) {
+      const items = loadItems();
+      const updated = items.map(item => {
+        if (item.id === id) {
+          const newStatus = item.status === 'done' ? 'todo' : 'done';
+          return { ...item, status: newStatus, completed: newStatus === 'done' };
+        }
+        return item;
+      });
+      saveItems(updated);
+    }
+
+    // Add new item
+    function addNewItem(title, category, priority, amount) {
+      if (!title || !title.trim()) return;
+      const items = loadItems();
+      const newItem = {
+        id: 'item_' + Date.now(),
+        title: title.trim(),
+        category: category || 'General',
+        priority: priority || 'medium',
+        status: DOMAIN_TYPE === 'todo' ? 'todo' : 'active',
+        completed: false,
+        amount: Number(amount) || 0,
+        price: Number(amount) || 25,
+        rating: 5.0,
+        stock: 20,
+        createdAt: new Date().toISOString()
+      };
+      saveItems([newItem, ...items]);
+    }
+
+    function deleteItem(id) {
+      const items = loadItems();
+      saveItems(items.filter(i => i.id !== id));
     }
 
     function exportCSV() {
       const items = loadItems();
-      const csv = 'ID,Title,Category,Status,Priority,Value\\n' + items.map(i => \`"\${i.id}","\${i.title}","\${i.category}","\${i.status}","\${i.priority}",\${i.value}\`).join('\\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
+      if (!items || items.length === 0) {
+        alert('No records available to export.');
+        return;
+      }
+      const keys = Object.keys(items[0]).filter(k => k !== 'content');
+      const csv = [
+        keys.join(','),
+        ...items.map(row => keys.map(k => '"' + (String(row[k] || '')).replace(/"/g, '""') + '"').join(','))
+      ].join('\\n');
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'export.csv';
+      a.href = url;
+      a.download = '${appName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-data.csv';
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
     }
 
-    // Handle internal query navigation
-    const urlParams = new URLSearchParams(window.location.search);
-    const targetRoute = urlParams.get('route');
-    if (targetRoute && targetRoute !== window.location.pathname) {
-      // route reflected
+    function renderApp() {
+      // Re-evaluate reactive statistics and item lists
+      const items = loadItems();
+      const totalEl = document.getElementById('stat-total');
+      const completedEl = document.getElementById('stat-completed');
+      const pendingEl = document.getElementById('stat-pending');
+      const rateEl = document.getElementById('stat-rate');
+
+      if (totalEl) totalEl.innerText = items.length;
+      if (completedEl) {
+        const c = items.filter(i => i.status === 'done' || i.completed).length;
+        completedEl.innerText = c;
+      }
+      if (pendingEl) {
+        const p = items.filter(i => i.status !== 'done' && !i.completed).length;
+        pendingEl.innerText = p;
+      }
+      if (rateEl) {
+        const c = items.filter(i => i.status === 'done' || i.completed).length;
+        const rate = items.length > 0 ? Math.round((c / items.length) * 100) : 0;
+        rateEl.innerText = rate + '%';
+      }
+
+      // Re-render dynamic list if container exists
+      const listContainer = document.getElementById('dynamic-items-list');
+      if (listContainer) {
+        listContainer.innerHTML = items.map(item => {
+          const isDone = item.status === 'done' || item.completed;
+          return \`
+            <div class="py-3 px-4 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center justify-between gap-3 group hover:border-zinc-700 transition">
+              <div class="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  \${isDone ? 'checked' : ''}
+                  onchange="toggleTodo('\${item.id}')"
+                  class="w-4 h-4 rounded bg-zinc-950 border-zinc-700 text-emerald-500 focus:ring-0 cursor-pointer"
+                />
+                <div>
+                  <div class="text-xs sm:text-sm font-medium \${isDone ? 'line-through text-zinc-500' : 'text-zinc-200'}">
+                    \${item.title}
+                  </div>
+                  <div class="flex items-center gap-2 text-[11px] text-zinc-500 mt-0.5">
+                    <span>\${item.category || 'General'}</span>
+                    \${item.dueDate ? \`<span>• Due \${item.dueDate}</span>\` : ''}
+                    \${item.amount ? \`<span>• $\${item.amount}</span>\` : ''}
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase \${
+                  item.priority === 'urgent'
+                    ? 'bg-rose-950 text-rose-400 border border-rose-800'
+                    : item.priority === 'high'
+                    ? 'bg-amber-950 text-amber-400 border border-amber-800'
+                    : 'bg-zinc-800 text-zinc-400'
+                }">
+                  \${item.priority || 'Normal'}
+                </span>
+                <button onclick="deleteItem('\${item.id}')" class="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-rose-400 p-1 transition text-xs">
+                  ✕
+                </button>
+              </div>
+            </div>
+          \`;
+        }).join('');
+      }
     }
+
+    // Attach form listener
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('add-item-form');
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const titleInput = document.getElementById('new-item-title');
+          const categoryInput = document.getElementById('new-item-category');
+          const priorityInput = document.getElementById('new-item-priority');
+          if (titleInput && titleInput.value.trim()) {
+            addNewItem(titleInput.value, categoryInput ? categoryInput.value : '', priorityInput ? priorityInput.value : 'medium');
+            titleInput.value = '';
+          }
+        });
+      }
+      renderApp();
+    });
   </script>
 </body>
 </html>`;
 }
 
-function renderHomeContent(name: string, desc?: string): string {
+function renderDomainHome(name: string, desc: string | undefined, domain: any): string {
+  const isTodo = domain.domainId === 'todo';
+  const isFinance = domain.domainId === 'finance';
+  const isEcommerce = domain.domainId === 'ecommerce';
+
   return `
-    <div class="p-6 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-zinc-900 to-zinc-900 border border-indigo-900/40 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <!-- Top Welcome Banner -->
+    <div class="p-6 rounded-2xl bg-gradient-to-r from-zinc-900 via-zinc-900 to-zinc-950 border border-zinc-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
-        <h1 class="text-xl font-bold text-white tracking-tight">${escapeHtml(name)}</h1>
-        <p class="text-xs text-zinc-400 mt-1 max-w-2xl">${escapeHtml(desc || 'Generated Full-Stack Application running in isolated sandbox.')}</p>
+        <div class="flex items-center gap-2 mb-1">
+          <span class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-zinc-800 text-zinc-300 border border-zinc-700">
+            ${escapeHtml(domain.domainTitle)}
+          </span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">${escapeHtml(name)}</h1>
+        <p class="text-xs sm:text-sm text-zinc-400 mt-1 max-w-2xl">${escapeHtml(desc || domain.domainSubtitle)}</p>
       </div>
       <div class="flex gap-2">
-        <a href="?route=/explore" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition">
-          Open Explorer →
+        <a href="?route=/explore" class="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-semibold shadow-lg shadow-white/10 transition">
+          Open Data Table →
         </a>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="p-4 rounded-xl bg-zinc-900 border border-zinc-800">
-        <div class="text-xs text-zinc-400">Total Work Items</div>
-        <div class="text-xl font-bold text-zinc-100 mt-1">4 Active</div>
-        <div class="text-[11px] text-emerald-400 mt-1">✓ Verified runtime state</div>
+    <!-- Domain Specific KPI Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div class="p-4 rounded-xl bg-zinc-900/90 border border-zinc-800">
+        <div class="text-xs font-medium text-zinc-400">${escapeHtml(domain.kpiCards[0]?.label || 'Total Items')}</div>
+        <div class="text-xl sm:text-2xl font-bold text-zinc-100 mt-1" id="stat-total">${domain.seedItems.length}</div>
+        <div class="text-[11px] text-zinc-500 mt-0.5">${escapeHtml(domain.kpiCards[0]?.subtext || 'Verified')}</div>
       </div>
-      <div class="p-4 rounded-xl bg-zinc-900 border border-zinc-800">
-        <div class="text-xs text-zinc-400">Completed Work</div>
-        <div class="text-xl font-bold text-indigo-400 mt-1">50% Completed</div>
-        <div class="text-[11px] text-zinc-500 mt-1">2 of 4 items finished</div>
+      <div class="p-4 rounded-xl bg-zinc-900/90 border border-zinc-800">
+        <div class="text-xs font-medium text-zinc-400">${escapeHtml(domain.kpiCards[1]?.label || 'Completed')}</div>
+        <div class="text-xl sm:text-2xl font-bold text-emerald-400 mt-1" id="stat-completed">
+          ${isFinance ? '$1,850' : isEcommerce ? '82' : domain.seedItems.filter((i: any) => i.status === 'done' || i.completed).length}
+        </div>
+        <div class="text-[11px] text-zinc-500 mt-0.5">${escapeHtml(domain.kpiCards[1]?.subtext || 'In runtime')}</div>
       </div>
-      <div class="p-4 rounded-xl bg-zinc-900 border border-zinc-800">
-        <div class="text-xs text-zinc-400">In Progress</div>
-        <div class="text-xl font-bold text-amber-400 mt-1">1 In Review</div>
-        <div class="text-[11px] text-zinc-500 mt-1">Active development</div>
+      <div class="p-4 rounded-xl bg-zinc-900/90 border border-zinc-800">
+        <div class="text-xs font-medium text-zinc-400">${escapeHtml(domain.kpiCards[2]?.label || 'Pending')}</div>
+        <div class="text-xl sm:text-2xl font-bold text-amber-400 mt-1" id="stat-pending">
+          ${isFinance ? '$258' : isEcommerce ? '4.8 ★' : domain.seedItems.filter((i: any) => i.status !== 'done' && !i.completed).length}
+        </div>
+        <div class="text-[11px] text-zinc-500 mt-0.5">${escapeHtml(domain.kpiCards[2]?.subtext || 'Active')}</div>
       </div>
-      <div class="p-4 rounded-xl bg-zinc-900 border border-zinc-800">
-        <div class="text-xs text-zinc-400">Allocated Value</div>
-        <div class="text-xl font-bold text-emerald-400 mt-1">$6,050</div>
-        <div class="text-[11px] text-zinc-500 mt-1">Live calculated total</div>
+      <div class="p-4 rounded-xl bg-zinc-900/90 border border-zinc-800">
+        <div class="text-xs font-medium text-zinc-400">${escapeHtml(domain.kpiCards[3]?.label || 'Metric')}</div>
+        <div class="text-xl sm:text-2xl font-bold text-zinc-200 mt-1" id="stat-rate">
+          ${isFinance ? '+$1,592' : isEcommerce ? '$3,240' : '40%'}
+        </div>
+        <div class="text-[11px] text-zinc-500 mt-0.5">${escapeHtml(domain.kpiCards[3]?.subtext || 'Healthy')}</div>
       </div>
     </div>
 
-    <div class="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3">
+    <!-- Quick Add Form -->
+    <div class="p-4 sm:p-5 rounded-2xl bg-zinc-900/80 border border-zinc-800 shadow-xl space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-zinc-100">Live Item Stream</h2>
-        <a href="?route=/explore" class="text-xs text-indigo-400 hover:underline">Explore all records →</a>
+        <h2 class="text-xs sm:text-sm font-semibold text-zinc-200">
+          ${isTodo ? 'Add New Task' : isFinance ? 'Quick Transaction Log' : 'Create New ' + domain.entityName}
+        </h2>
+        <span class="text-[11px] text-zinc-500 font-mono">Immediate local persistence</span>
       </div>
-      <div class="divide-y divide-zinc-800 text-xs">
-        <div class="py-2.5 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span class="font-medium text-zinc-200">User Authentication & JWT Tokens</span>
-            <span class="text-zinc-500">• Core</span>
-          </div>
-          <span class="px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">DONE</span>
+      <form id="add-item-form" class="flex flex-col sm:flex-row gap-2.5">
+        <input
+          id="new-item-title"
+          type="text"
+          required
+          placeholder="${isTodo ? 'What task needs to be completed? (e.g. Schedule team retrospective)' : isFinance ? 'Description (e.g. Server hosting, Groceries)' : 'Enter record title...'}"
+          class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-400"
+        />
+        <input
+          id="new-item-category"
+          type="text"
+          placeholder="Category (e.g. Work, Tech)"
+          class="w-full sm:w-36 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-400"
+        />
+        <select
+          id="new-item-priority"
+          class="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-emerald-400"
+        >
+          <option value="low">Low Priority</option>
+          <option value="medium" selected>Medium Priority</option>
+          <option value="high">High Priority</option>
+          <option value="urgent">Urgent</option>
+        </select>
+        <button
+          type="submit"
+          class="px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold transition shrink-0 cursor-pointer shadow-md"
+        >
+          ${escapeHtml(domain.primaryActionLabel)}
+        </button>
+      </form>
+    </div>
+
+    <!-- Live Interactive Item Feed -->
+    <div class="p-5 rounded-2xl bg-zinc-900/90 border border-zinc-800 space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <h2 class="text-sm font-semibold text-zinc-100">
+            ${isTodo ? 'Task Checklist' : 'Active ' + domain.entityName + ' Stream'}
+          </h2>
+          <span class="text-[11px] font-mono text-zinc-500">Click checkbox to toggle</span>
         </div>
-        <div class="py-2.5 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-            <span class="font-medium text-zinc-200">Data Explorer Table & CSV Export</span>
-            <span class="text-zinc-500">• UI</span>
-          </div>
-          <span class="px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800">IN PROGRESS</span>
-        </div>
-        <div class="py-2.5 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span class="font-medium text-zinc-200">Automated Diagnostic Error Recovery</span>
-            <span class="text-zinc-500">• Agent</span>
-          </div>
-          <span class="px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">DONE</span>
-        </div>
+        <a href="?route=/explore" class="text-xs text-emerald-400 hover:underline">View all records →</a>
+      </div>
+
+      <div class="space-y-2.5" id="dynamic-items-list">
+        <!-- Rendered by client JavaScript with real data -->
       </div>
     </div>
   `;
 }
 
-function renderExploreContent(): string {
+function renderDomainExplorer(domain: any): string {
   return `
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div>
-        <h1 class="text-lg font-bold text-white">Data Explorer & Interactive Records</h1>
-        <p class="text-xs text-zinc-400">Live CRUD operations with immediate state persistence.</p>
+        <h1 class="text-lg font-bold text-white">${escapeHtml(domain.routes[1]?.name || 'Data Explorer')}</h1>
+        <p class="text-xs text-zinc-400">Interactive table with multi-criteria filtering, search, and CSV export.</p>
       </div>
       <div class="flex items-center gap-2">
-        <button onclick="exportCSV()" class="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-xs font-medium text-zinc-300 transition">
+        <button onclick="exportCSV()" class="px-3.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-xs font-semibold text-zinc-200 transition cursor-pointer">
           Export CSV
-        </button>
-        <button onclick="createRecord()" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition shadow-md shadow-indigo-600/30">
-          + Add Record
         </button>
       </div>
     </div>
 
-    <div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg">
-      <table class="w-full text-left text-xs text-zinc-300">
-        <thead class="bg-zinc-950/70 text-zinc-400 border-b border-zinc-800">
-          <tr>
-            <th class="px-4 py-2.5">Title</th>
-            <th class="px-4 py-2.5">Category</th>
-            <th class="px-4 py-2.5">Status</th>
-            <th class="px-4 py-2.5">Priority</th>
-            <th class="px-4 py-2.5">Value</th>
-            <th class="px-4 py-2.5">Assignee</th>
-            <th class="px-4 py-2.5 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-zinc-800/60" id="table-body">
-          <tr class="hover:bg-zinc-800/30">
-            <td class="px-4 py-2.5 font-medium text-zinc-200">User Authentication & JWT Tokens</td>
-            <td class="px-4 py-2.5 text-zinc-400">Core</td>
-            <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-[11px]">done</span></td>
-            <td class="px-4 py-2.5"><span class="text-amber-400 font-semibold text-[11px]">HIGH</span></td>
-            <td class="px-4 py-2.5 font-mono">$1,200</td>
-            <td class="px-4 py-2.5 text-zinc-400">Alex R.</td>
-            <td class="px-4 py-2.5 text-right"><button onclick="deleteRecord('1')" class="text-rose-400 hover:underline">Delete</button></td>
-          </tr>
-          <tr class="hover:bg-zinc-800/30">
-            <td class="px-4 py-2.5 font-medium text-zinc-200">Data Explorer Table & CSV Export</td>
-            <td class="px-4 py-2.5 text-zinc-400">UI</td>
-            <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800 text-[11px]">in_progress</span></td>
-            <td class="px-4 py-2.5"><span class="text-rose-400 font-semibold text-[11px]">URGENT</span></td>
-            <td class="px-4 py-2.5 font-mono">$2,400</td>
-            <td class="px-4 py-2.5 text-zinc-400">Sarah C.</td>
-            <td class="px-4 py-2.5 text-right"><button onclick="deleteRecord('2')" class="text-rose-400 hover:underline">Delete</button></td>
-          </tr>
-          <tr class="hover:bg-zinc-800/30">
-            <td class="px-4 py-2.5 font-medium text-zinc-200">Automated Diagnostic Error Recovery</td>
-            <td class="px-4 py-2.5 text-zinc-400">Agent</td>
-            <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 text-[11px]">done</span></td>
-            <td class="px-4 py-2.5"><span class="text-zinc-400 font-medium text-[11px]">MEDIUM</span></td>
-            <td class="px-4 py-2.5 font-mono">$850</td>
-            <td class="px-4 py-2.5 text-zinc-400">Maya L.</td>
-            <td class="px-4 py-2.5 text-right"><button onclick="deleteRecord('3')" class="text-rose-400 hover:underline">Delete</button></td>
-          </tr>
-          <tr class="hover:bg-zinc-800/30">
-            <td class="px-4 py-2.5 font-medium text-zinc-200">PostgreSQL Migration Architecture</td>
-            <td class="px-4 py-2.5 text-zinc-400">Backend</td>
-            <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 text-[11px]">todo</span></td>
-            <td class="px-4 py-2.5"><span class="text-zinc-400 font-medium text-[11px]">MEDIUM</span></td>
-            <td class="px-4 py-2.5 font-mono">$1,600</td>
-            <td class="px-4 py-2.5 text-zinc-400">John D.</td>
-            <td class="px-4 py-2.5 text-right"><button onclick="deleteRecord('4')" class="text-rose-400 hover:underline">Delete</button></td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-xl">
+      <div class="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/60">
+        <input
+          type="text"
+          id="table-search"
+          placeholder="Filter records by title or category..."
+          class="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-emerald-400 w-full max-w-sm"
+        />
+        <span class="text-[11px] text-zinc-500 font-mono">Live Search</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-zinc-300">
+          <thead class="bg-zinc-950/80 text-zinc-400 border-b border-zinc-800">
+            <tr>
+              <th class="px-4 py-3">Title / Description</th>
+              <th class="px-4 py-3">Category</th>
+              <th class="px-4 py-3">Status</th>
+              <th class="px-4 py-3">Priority</th>
+              <th class="px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-800/60" id="explorer-tbody">
+            ${domain.seedItems
+              .map(
+                (item: any) => `
+              <tr class="hover:bg-zinc-800/30">
+                <td class="px-4 py-3 font-medium text-zinc-200">${escapeHtml(item.title)}</td>
+                <td class="px-4 py-3 text-zinc-400">${escapeHtml(item.category || 'General')}</td>
+                <td class="px-4 py-3">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${
+                    item.status === 'done' || item.completed
+                      ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                      : 'bg-zinc-800 text-zinc-300'
+                  }">
+                    ${escapeHtml(item.status || 'active')}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-zinc-400 uppercase text-[10px] font-semibold">${escapeHtml(item.priority || 'medium')}</td>
+                <td class="px-4 py-3 text-right">
+                  <button onclick="deleteItem('${item.id}'); location.reload();" class="text-rose-400 hover:underline">Delete</button>
+                </td>
+              </tr>
+            `
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
     </div>
   `;
 }
 
-function renderAnalyticsContent(): string {
+function renderDomainAnalytics(domain: any): string {
   return `
     <div>
-      <h1 class="text-lg font-bold text-white">Analytics & Metrics Intelligence</h1>
-      <p class="text-xs text-zinc-400">Visual progress distributions and operational status.</p>
+      <h1 class="text-lg font-bold text-white">${escapeHtml(domain.routes[2]?.name || 'Analytics & Insights')}</h1>
+      <p class="text-xs text-zinc-400">Visual performance breakdowns, velocity metrics, and priority distributions.</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="p-5 rounded-xl bg-zinc-900 border border-zinc-800 space-y-4">
-        <h3 class="text-xs font-semibold text-zinc-200 uppercase tracking-wider">Status Distribution</h3>
-        <div class="space-y-3 text-xs">
+      <div class="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4">
+        <h3 class="text-xs font-bold text-zinc-200 uppercase tracking-wider">Completion & Status Breakdown</h3>
+        <div class="space-y-3.5 text-xs">
           <div>
-            <div class="flex justify-between text-zinc-400 mb-1"><span>Completed</span><span>50%</span></div>
-            <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div class="h-full bg-emerald-500 w-1/2"></div></div>
+            <div class="flex justify-between text-zinc-300 mb-1"><span>Completed Milestones</span><span class="font-mono text-emerald-400">60%</span></div>
+            <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div class="h-full bg-emerald-500 w-3/5"></div></div>
           </div>
           <div>
-            <div class="flex justify-between text-zinc-400 mb-1"><span>In Progress</span><span>25%</span></div>
-            <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div class="h-full bg-amber-500 w-1/4"></div></div>
+            <div class="flex justify-between text-zinc-300 mb-1"><span>Active In Progress</span><span class="font-mono text-amber-400">30%</span></div>
+            <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div class="h-full bg-amber-500 w-3/10"></div></div>
           </div>
           <div>
-            <div class="flex justify-between text-zinc-400 mb-1"><span>To Do</span><span>25%</span></div>
-            <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div class="h-full bg-indigo-500 w-1/4"></div></div>
+            <div class="flex justify-between text-zinc-300 mb-1"><span>Pending Backlog</span><span class="font-mono text-zinc-400">10%</span></div>
+            <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div class="h-full bg-zinc-600 w-1/10"></div></div>
           </div>
         </div>
       </div>
 
-      <div class="p-5 rounded-xl bg-zinc-900 border border-zinc-800 space-y-4">
-        <h3 class="text-xs font-semibold text-zinc-200 uppercase tracking-wider">Priority Distribution</h3>
-        <div class="space-y-3 text-xs">
+      <div class="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4">
+        <h3 class="text-xs font-bold text-zinc-200 uppercase tracking-wider">Priority Distribution</h3>
+        <div class="space-y-3.5 text-xs">
           <div>
-            <div class="flex justify-between text-zinc-400 mb-1"><span>Urgent Priority</span><span>25%</span></div>
+            <div class="flex justify-between text-zinc-300 mb-1"><span>Urgent Priority</span><span class="font-mono text-rose-400">25%</span></div>
             <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div class="h-full bg-rose-500 w-1/4"></div></div>
           </div>
           <div>
-            <div class="flex justify-between text-zinc-400 mb-1"><span>High Priority</span><span>25%</span></div>
-            <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div class="h-full bg-amber-500 w-1/4"></div></div>
+            <div class="flex justify-between text-zinc-300 mb-1"><span>High Priority</span><span class="font-mono text-amber-400">35%</span></div>
+            <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div class="h-full bg-amber-500 w-[35%]"></div></div>
           </div>
           <div>
-            <div class="flex justify-between text-zinc-400 mb-1"><span>Medium Priority</span><span>50%</span></div>
-            <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div class="h-full bg-indigo-500 w-1/2"></div></div>
+            <div class="flex justify-between text-zinc-300 mb-1"><span>Standard & Normal</span><span class="font-mono text-zinc-400">40%</span></div>
+            <div class="h-2 rounded-full bg-zinc-800 overflow-hidden"><div class="h-full bg-zinc-600 w-2/5"></div></div>
           </div>
         </div>
       </div>
@@ -403,20 +555,34 @@ function renderAnalyticsContent(): string {
   `;
 }
 
-function renderSettingsContent(name: string): string {
+function renderDomainSettings(name: string, domain: any, projectId: string): string {
   return `
     <div class="max-w-2xl space-y-6">
       <div>
         <h1 class="text-lg font-bold text-white">${escapeHtml(name)} Settings</h1>
-        <p class="text-xs text-zinc-400">Preview environment configuration and local storage reset.</p>
+        <p class="text-xs text-zinc-400">Sandbox state preferences, data export, and browser storage controls.</p>
       </div>
 
-      <div class="p-5 rounded-xl bg-zinc-900 border border-zinc-800 space-y-4">
-        <div class="text-xs font-medium text-zinc-300">Reset Local Sandbox Data</div>
-        <p class="text-xs text-zinc-400">Clears client storage items and restores default seed data.</p>
-        <button onclick="localStorage.removeItem('shipshape_sandbox_items'); location.reload();" class="px-3 py-1.5 rounded-lg bg-rose-950 border border-rose-800 text-rose-300 text-xs font-medium hover:bg-rose-900 transition">
-          Reset Data
+      <div class="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4">
+        <div>
+          <h3 class="text-xs font-bold text-zinc-200">Reset Local Sandbox Data</h3>
+          <p class="text-xs text-zinc-400 mt-1">Clears client-stored items and resets back to the initial curated domain seed data.</p>
+        </div>
+        <button
+          onclick="localStorage.removeItem('shipshape_sandbox_${projectId}_v2'); location.reload();"
+          class="px-4 py-2 rounded-xl bg-rose-950/80 border border-rose-800 text-rose-300 text-xs font-semibold hover:bg-rose-900 transition cursor-pointer"
+        >
+          Reset to Default Seed Data
         </button>
+      </div>
+
+      <div class="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3">
+        <h3 class="text-xs font-bold text-zinc-200">Architecture Specification</h3>
+        <div class="text-xs text-zinc-400 space-y-1 font-mono">
+          <div>Domain Category: <span class="text-zinc-200">${escapeHtml(domain.domainTitle)}</span></div>
+          <div>Primary Entity: <span class="text-zinc-200">${escapeHtml(domain.entityName)}</span></div>
+          <div>Storage Engine: <span class="text-emerald-400">Local Persistence Engine (Client-Safe)</span></div>
+        </div>
       </div>
     </div>
   `;
@@ -431,12 +597,12 @@ function renderPreviewPending(name: string, reason: string): string {
 </head>
 <body class="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center p-6 text-center">
   <div class="max-w-md space-y-4">
-    <div class="w-12 h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center mx-auto animate-pulse font-bold text-xl">
+    <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center mx-auto animate-pulse font-bold text-xl">
       ⚡
     </div>
     <h2 class="text-lg font-bold text-zinc-100">${escapeHtml(name)}</h2>
     <p class="text-xs text-zinc-400">${escapeHtml(reason)}</p>
-    <div class="text-[11px] text-zinc-500 font-mono">Sandbox status: WAITING_FOR_GENERATION</div>
+    <div class="text-[11px] text-zinc-500 font-mono">Status: SYNTHESIZING_CODEBASE</div>
   </div>
 </body>
 </html>`;

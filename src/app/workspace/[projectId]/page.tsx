@@ -486,6 +486,8 @@ function WorkspaceContent({
                 isProcessing={isProcessing}
                 activeRun={activeRun}
                 events={events}
+                prompt={project?.description || specification?.description}
+                projectName={project?.name}
                 onCancelRun={async () => {
                   if (activeRun) {
                     await fetch(`/api/v1/generation-runs/${activeRun.id}/cancel`, { method: 'POST' });

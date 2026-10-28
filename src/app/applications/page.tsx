@@ -22,6 +22,7 @@ import {
   Bot,
   Code2,
   LogIn,
+  AlertCircle,
 } from 'lucide-react';
 
 export default function ApplicationsChatPage() {
@@ -34,6 +35,7 @@ export default function ApplicationsChatPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [exportingId, setExportingId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Conversational message history
   const [chatMessages, setChatMessages] = useState<
@@ -189,6 +191,15 @@ export default function ApplicationsChatPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Cmd+Enter or Ctrl+Enter submits
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      if (prompt.trim() && !isSubmitting) {
+        handleStartGeneration(e);
+      }
+      return;
+    }
+    // Enter without Shift also submits if prompt is single-line or short
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (prompt.trim() && !isSubmitting) {
@@ -197,15 +208,13 @@ export default function ApplicationsChatPage() {
     }
   };
 
-  const handleDeleteProject = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (!confirm('Are you sure you want to delete this project?')) return;
+  const confirmDeleteProject = async (id: string) => {
     try {
       const res = await fetch(`/api/v1/projects/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         setProjects((prev) => prev.filter((p) => p.id !== id));
+        setDeleteConfirmId(null);
       }
     } catch (err) {
       console.error('Failed to delete project:', err);
@@ -468,13 +477,14 @@ export default function ApplicationsChatPage() {
                   Target: Next.js + React 19 + TypeScript
                 </span>
                 <span className="hidden sm:inline text-zinc-500">
-                  • ↵ Enter to send, Shift+↵ for newline
+                  • ⌘+Enter to build, Shift+Enter for newline
                 </span>
               </div>
 
               <button
                 type="submit"
                 disabled={!prompt.trim() || isSubmitting}
+                title={!prompt.trim() ? 'Enter your application requirements above to start building' : 'Start synthesis pipeline'}
                 className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs sm:text-sm font-bold shadow-lg shadow-white/10 transition flex items-center justify-center gap-2 disabled:opacity-40 cursor-pointer"
               >
                 {isSubmitting ? (
@@ -524,30 +534,43 @@ export default function ApplicationsChatPage() {
               No active projects yet. Type your idea above to start building your first project!
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {projects.slice(0, 4).map((p) => {
-                const isRunning = p.status.toLowerCase() === 'running';
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              {projects.slice(0, 3).map((p) => {
+                const s = p.status.toLowerCase();
+                const isReady = s === 'ready' || s === 'running';
+                const isGenerating = s === 'generating' || s === 'planning' || s === 'building';
+                const isError = s === 'error';
 
                 return (
                   <div
                     key={p.id}
                     onClick={() => router.push(`/workspace/${p.id}`)}
-                    className="p-4 rounded-xl bg-zinc-900/70 border border-zinc-800 hover:border-zinc-600 text-left transition group cursor-pointer flex flex-col justify-between shadow-lg"
+                    className="p-4 rounded-xl bg-zinc-900/70 border border-zinc-800 hover:border-zinc-600 text-left transition group cursor-pointer flex flex-col justify-between shadow-lg relative"
                   >
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        {isRunning ? (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-700/80">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            RUNNING
+                        {isReady ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/80">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            Ready
+                          </span>
+                        ) : isGenerating ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-950 text-amber-400 border border-amber-800/80">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            Generating
+                          </span>
+                        ) : isError ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-950 text-rose-400 border border-rose-800/80">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                            Needs Attention
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-950 text-zinc-300 border border-zinc-800">
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-                            READY
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-zinc-950 text-zinc-400 border border-zinc-800">
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                            Draft
                           </span>
                         )}
-                        <span className="text-[10px] text-zinc-400 font-mono">
+                        <span className="text-[10px] text-zinc-500 font-mono">
                           {new Date(p.updatedAt).toLocaleDateString([], {
                             month: 'short',
                             day: 'numeric',
@@ -574,8 +597,12 @@ export default function ApplicationsChatPage() {
                           <Download className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={(e) => handleDeleteProject(p.id, e)}
-                          title="Archive Project"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setDeleteConfirmId(p.id);
+                          }}
+                          title="Delete Project"
                           className="p-1 rounded-lg hover:bg-zinc-800 hover:text-rose-400 transition"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -583,10 +610,35 @@ export default function ApplicationsChatPage() {
                       </div>
 
                       <div className="flex items-center gap-1 text-zinc-300 group-hover:text-white text-xs font-medium group-hover:translate-x-0.5 transition-transform">
-                        <span>Open Workspace</span>
+                        <span>Workspace</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </div>
                     </div>
+
+                    {/* Delete Confirmation Modal Overlay */}
+                    {deleteConfirmId === p.id && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute inset-0 bg-zinc-950/95 backdrop-blur rounded-xl p-3 flex flex-col justify-center items-center text-center space-y-2 z-20 border border-rose-800/80 animate-in fade-in"
+                      >
+                        <AlertCircle className="w-5 h-5 text-rose-400" />
+                        <div className="text-[11px] font-bold text-white">Delete project?</div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setDeleteConfirmId(null)}
+                            className="px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-[10px] text-zinc-300 transition"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => confirmDeleteProject(p.id)}
+                            className="px-2.5 py-1 rounded-md bg-rose-600 hover:bg-rose-500 text-[10px] font-bold text-white transition"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

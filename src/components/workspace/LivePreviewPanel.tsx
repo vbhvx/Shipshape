@@ -25,6 +25,7 @@ export default function LivePreviewPanel({
   const [refreshKey, setRefreshKey] = useState(0);
 
   const targetUrl = previewUrl || `/api/v1/preview/${projectId}`;
+  const sanitizedSubdomain = projectId.replace(/[^a-zA-Z0-9-]/g, '-').slice(0, 16).replace(/^-+|-+$/g, '');
 
   const handleRefresh = () => {
     setRefreshKey((k) => k + 1);
@@ -62,7 +63,7 @@ export default function LivePreviewPanel({
               }`}
             />
             <span className="text-zinc-200 font-bold">https://</span>
-            <span className="text-zinc-300">sandbox-{projectId.slice(0, 8)}.shipshape.run</span>
+            <span className="text-zinc-300">sandbox-{sanitizedSubdomain}.shipshape.run</span>
           </div>
         </div>
 

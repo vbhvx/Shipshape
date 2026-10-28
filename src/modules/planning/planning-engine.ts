@@ -7,6 +7,7 @@ import {
   DesignSpecification,
   IntegrationRequirement,
 } from '@/types';
+import { inferDomain } from './domain-catalog';
 
 /**
  * Creates a structured ProjectSpecification and editable ApplicationPlan from natural language requirements.
@@ -17,145 +18,28 @@ export async function createPlanFromPrompt(
   prompt: string,
   existingSpec?: ProjectSpecification | null
 ): Promise<ApplicationPlan> {
-  const lower = prompt.toLowerCase();
+  const domain = inferDomain(prompt, projectName);
 
-  // Detect category and domains from prompt
-  const isKanban = lower.includes('kanban') || lower.includes('task') || lower.includes('todo') || lower.includes('board') || lower.includes('sprint');
-  const isEcommerce = lower.includes('store') || lower.includes('shop') || lower.includes('cart') || lower.includes('product') || lower.includes('commerce') || lower.includes('fragrance');
-  const isCrm = lower.includes('crm') || lower.includes('contact') || lower.includes('lead') || lower.includes('customer') || lower.includes('pipeline');
-  const isWindOrWeather = lower.includes('wind') || lower.includes('weather') || lower.includes('forecast') || lower.includes('energy');
+  // Interpret Routes from inferred domain
+  const routes: RouteSpecification[] = domain.routes;
 
-  // Interpret Routes
-  const routes: RouteSpecification[] = [
-    {
-      path: '/',
-      name: 'Home & Overview',
-      description: 'Main dashboard view, quick actions, metric highlights, and primary workflow entry point',
-      isProtected: false,
-    },
-    {
-      path: '/explore',
-      name: isEcommerce ? 'Product Catalog' : isKanban ? 'Task Board' : isCrm ? 'Contacts & Deals' : isWindOrWeather ? 'Forecast Intelligence' : 'Data Explorer',
-      description: 'Interactive management table and search/filter interface with real-time operations',
-      isProtected: false,
-    },
-    {
-      path: '/analytics',
-      name: 'Analytics & Insights',
-      description: 'Visual performance metrics, breakdowns, charts, and summary reports',
-      isProtected: false,
-    },
-    {
-      path: '/settings',
-      name: 'Settings & Config',
-      description: 'Application preferences, notification controls, data export, and profile settings',
-      isProtected: false,
-    },
-  ];
-
-  // Interpret Features
-  const features: FeatureSpecification[] = [
-    {
-      id: 'feat_crud',
-      name: isKanban ? 'Drag-and-Drop Task Management' : isEcommerce ? 'Interactive Product Catalog & Cart' : isCrm ? 'Contact Lifecycle & Deal Pipeline' : 'Interactive Record Management',
-      description: 'Create, update, search, filter, and delete items with immediate state persistence and validation',
-      category: 'core',
-      status: 'planned',
-    },
-    {
-      id: 'feat_search_filter',
-      name: 'Real-time Search & Multi-criteria Filtering',
-      description: 'Instant client-side fuzzy search, category filtering, and status sorting',
-      category: 'ui',
-      status: 'planned',
-    },
-    {
-      id: 'feat_analytics',
-      name: 'Dynamic KPI Dashboard & Visual Metrics',
-      description: 'Calculated metrics, distribution bars, progress tracking, and historical trends',
-      category: 'ui',
-      status: 'planned',
-    },
-    {
-      id: 'feat_persistence',
-      name: 'Client-Safe Local Storage & API Sync',
-      description: 'Zero-loss state survival across browser refreshes with mock API boundary',
-      category: 'data',
-      status: 'planned',
-    },
-    {
-      id: 'feat_export',
-      name: 'CSV & JSON Data Export',
-      description: 'One-click export of data tables and records to CSV format',
-      category: 'core',
-      status: 'planned',
-    },
-  ];
+  // Interpret Features from inferred domain
+  const features: FeatureSpecification[] = domain.features;
 
   // Interpret Data Entities
-  let dataEntities: DataEntitySpecification[] = [];
-  if (isKanban) {
-    dataEntities = [
-      {
-        name: 'TaskItem',
-        description: 'Represents a kanban card or task item in the project workflow',
-        fields: [
-          { name: 'id', type: 'string', required: true, description: 'Unique identifier' },
-          { name: 'title', type: 'string', required: true, description: 'Task title' },
-          { name: 'description', type: 'string', required: false, description: 'Detailed markdown notes' },
-          { name: 'status', type: 'string', required: true, description: 'todo | in_progress | review | done' },
-          { name: 'priority', type: 'string', required: true, description: 'low | medium | high | urgent' },
-          { name: 'assignee', type: 'string', required: false, description: 'User name or email' },
-          { name: 'dueDate', type: 'string', required: false, description: 'ISO date string' },
-          { name: 'tags', type: 'string[]', required: false, description: 'Array of tag labels' },
-        ],
-      },
-    ];
-  } else if (isEcommerce) {
-    dataEntities = [
-      {
-        name: 'Product',
-        description: 'Represents a catalog product with pricing, inventory, and categories',
-        fields: [
-          { name: 'id', type: 'string', required: true, description: 'Unique identifier' },
-          { name: 'name', type: 'string', required: true, description: 'Product title' },
-          { name: 'price', type: 'number', required: true, description: 'Unit price in USD' },
-          { name: 'category', type: 'string', required: true, description: 'Product department' },
-          { name: 'rating', type: 'number', required: true, description: 'Star rating 1-5' },
-          { name: 'stock', type: 'number', required: true, description: 'Available inventory units' },
-          { name: 'image', type: 'string', required: true, description: 'Photo URL' },
-        ],
-      },
-      {
-        name: 'CartItem',
-        description: 'Customer cart item with quantity and line-item total',
-        fields: [
-          { name: 'productId', type: 'string', required: true, description: 'Referenced product' },
-          { name: 'quantity', type: 'number', required: true, description: 'Quantity selected' },
-        ],
-      },
-    ];
-  } else {
-    dataEntities = [
-      {
-        name: 'RecordItem',
-        description: 'Primary entity representing tracked items or events',
-        fields: [
-          { name: 'id', type: 'string', required: true, description: 'Unique identifier' },
-          { name: 'title', type: 'string', required: true, description: 'Primary label' },
-          { name: 'category', type: 'string', required: true, description: 'Classification tag' },
-          { name: 'status', type: 'string', required: true, description: 'Current state' },
-          { name: 'value', type: 'number', required: true, description: 'Primary quantitative metric' },
-          { name: 'updatedAt', type: 'string', required: true, description: 'Last modified ISO timestamp' },
-        ],
-      },
-    ];
-  }
+  const dataEntities: DataEntitySpecification[] = [
+    {
+      name: domain.entityName,
+      description: domain.entityDescription,
+      fields: domain.fields,
+    },
+    ...(domain.additionalEntities || []),
+  ];
 
   // Design Specification
   const designSystem: DesignSpecification = {
     theme: 'dark',
-    primaryColor: '#6366f1', // Indigo
+    primaryColor: domain.accentHex,
     style: 'modern-minimal',
     typography: 'Inter, system-ui, sans-serif',
   };
