@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Show, UserButton } from '@clerk/nextjs';
 import HeroPromptBox from '@/components/landing/HeroPromptBox';
 import HeroLoopingDemo from '@/components/landing/HeroLoopingDemo';
 import ArchitectureBento from '@/components/landing/ArchitectureBento';
@@ -257,13 +258,38 @@ export function CartDrawer({ items, onCheckout }: { items: CartItem[]; onCheckou
           </nav>
 
           <div className="flex items-center gap-3">
-            <Link
-              href="/applications"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold shadow-lg shadow-white/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Start building</span>
-            </Link>
+            <Show when="signed-out">
+              <Link
+                href="/sign-in"
+                className="text-xs font-medium text-zinc-300 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-zinc-900 border border-transparent hover:border-zinc-800"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/sign-up"
+                className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold shadow-lg shadow-white/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Sign up</span>
+              </Link>
+            </Show>
+
+            <Show when="signed-in">
+              <Link
+                href="/applications"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold shadow-lg shadow-white/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Start building</span>
+              </Link>
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "w-8 h-8 rounded-xl border border-zinc-700 shadow-md",
+                  },
+                }}
+              />
+            </Show>
           </div>
         </div>
       </header>

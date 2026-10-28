@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Show, UserButton } from '@clerk/nextjs';
 import { Project } from '@/types';
 import {
   Sparkles,
@@ -244,10 +245,28 @@ export default function ApplicationsChatPage() {
               <span>Projects</span>
             </Link>
 
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 text-zinc-200 border border-zinc-700/80">
+            <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 text-zinc-200 border border-zinc-700/80">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               AI Agent Ready
             </span>
+
+            <Show when="signed-in">
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "w-7 h-7 rounded-lg border border-zinc-700/80",
+                  },
+                }}
+              />
+            </Show>
+            <Show when="signed-out">
+              <Link
+                href="/sign-in"
+                className="text-xs font-medium text-zinc-300 hover:text-white transition px-2.5 py-1 rounded-lg hover:bg-zinc-900 border border-transparent hover:border-zinc-800"
+              >
+                Sign in
+              </Link>
+            </Show>
           </div>
         </div>
       </header>

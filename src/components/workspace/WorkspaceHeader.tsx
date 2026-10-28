@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { UserButton } from '@clerk/nextjs';
 import {
   Download,
   RotateCcw,
@@ -132,6 +133,16 @@ export default function WorkspaceHeader({
           <Download className="w-3.5 h-3.5 text-black" />
           <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export .zip'}</span>
         </button>
+
+        <div className="h-4 w-px bg-zinc-800" />
+
+        <UserButton
+          appearance={{
+            elements: {
+              avatarBox: "w-7 h-7 rounded-lg border border-zinc-700 shadow-sm",
+            },
+          }}
+        />
       </div>
     </header>
   );
