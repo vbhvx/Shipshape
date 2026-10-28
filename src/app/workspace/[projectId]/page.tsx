@@ -174,131 +174,6 @@ function WorkspaceContent({
     });
   };
 
-  // Initial load
-  useEffect(() => {
-    let ignore = false;
-    async function loadWorkspace() {
-      try {
-        setLoading(true);
-        const res = await fetch(`/api/v1/projects/${projectId}`);
-        const data = await res.json();
-        if (!ignore && data.success) {
-          setProject(data.project);
-          setSpecification(data.specification);
-
-          // Load versions
-          const versRes = await fetch(`/api/v1/projects/${projectId}/versions`);
-          const versData = await versRes.json();
-          if (versData.success) {
-            setVersions(versData.versions);
-            const activeV = data.project.activeVersionId || versData.versions[0]?.id;
-            setActiveVersionId(activeV);
-
-            // Load files for active version
-            if (activeV) {
-              const filesRes = await fetch(`/api/v1/projects/${projectId}/files?versionId=${activeV}`);
-              const filesData = await filesRes.json();
-              if (filesData.success) {
-                setFiles(filesData.files);
-                setSelectedFile(filesData.files[0] || null);
-              }
-            }
-          }
-
-          // Check if there is an active run or runId from URL search param
-          const runIdToTrack = paramRunId || data.activeRun?.id;
-          if (runIdToTrack) {
-            try {
-              const runRes = await fetch(`/api/v1/generation-runs/${runIdToTrack}`);
-              const runData = await runRes.json();
-              if (runData.success && runData.run) {
-                setActiveRun(runData.run);
-                if (runData.events && runData.events.length > 0) {
-                  setEvents(runData.events);
-                }
-                if (runData.buildResults) {
-                  setBuildResults(runData.buildResults);
-                }
-                const isRunActive = [
-                  'queued',
-                  'planning',
-                  'generating',
-                  'validating',
-                  'building',
-                  'repairing',
-                  'starting',
-                ].includes(runData.run.status);
-
-                if (isRunActive) {
-                  setIsProcessing(true);
-                  connectSSE(runIdToTrack);
-                }
-              }
-            } catch (runErr) {
-              console.warn('Failed to load initial run details:', runErr);
-            }
-          }
-        } else if (!data.success) {
-          setError(data.error || 'Failed to load project');
-        }
-      } catch (err: any) {
-        if (!ignore) setError(err.message);
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
-
-    loadWorkspace();
-    return () => {
-      ignore = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, paramRunId]);
-
-  // Cleanup EventSource on unmount
-  useEffect(() => {
-    return () => {
-      if (activeEventSourceRef.current) {
-        activeEventSourceRef.current.close();
-        activeEventSourceRef.current = null;
-      }
-    };
-  }, []);
-
-  // Resilient fallback polling loop while processing
-  useEffect(() => {
-    if (!isProcessing || !activeRun?.id) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/v1/generation-runs/${activeRun.id}`);
-        const data = await res.json();
-        if (data.success && data.run) {
-          if (data.events && data.events.length > 0) {
-            setEvents(data.events);
-          }
-          setActiveRun(data.run);
-          if (data.buildResults) {
-            setBuildResults(data.buildResults);
-          }
-          if (['completed', 'failed', 'cancelled'].includes(data.run.status)) {
-            setIsProcessing(false);
-            if (activeEventSourceRef.current) {
-              activeEventSourceRef.current.close();
-              activeEventSourceRef.current = null;
-            }
-            reloadVersionsAndFiles();
-          }
-        }
-      } catch (err) {
-        console.warn('Run status poll check error:', err);
-      }
-    }, 1500);
-
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isProcessing, activeRun?.id]);
-
   // Handle iterative modification prompt (or initial generation if no base version yet)
   const handleSendMessage = async (text: string) => {
     if (isProcessing) return;
@@ -376,6 +251,138 @@ function WorkspaceContent({
       setIsProcessing(false);
     }
   };
+
+  // Initial load
+  useEffect(() => {
+    let ignore = false;
+    async function loadWorkspace() {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/v1/projects/${projectId}`);
+        const data = await res.json();
+        if (!ignore && data.success) {
+          setProject(data.project);
+          setSpecification(data.specification);
+
+          // Load versions
+          const versRes = await fetch(`/api/v1/projects/${projectId}/versions`);
+          const versData = await versRes.json();
+          if (versData.success) {
+            setVersions(versData.versions);
+            const activeV = data.project.activeVersionId || versData.versions[0]?.id;
+            setActiveVersionId(activeV);
+
+            // Load files for active version
+            if (activeV) {
+              const filesRes = await fetch(`/api/v1/projects/${projectId}/files?versionId=${activeV}`);
+              const filesData = await filesRes.json();
+              if (filesData.success) {
+                setFiles(filesData.files);
+                setSelectedFile(filesData.files[0] || null);
+              }
+            }
+          }
+
+          // Check if there is an active run or runId from URL search param
+          const runIdToTrack = paramRunId || data.activeRun?.id;
+          if (runIdToTrack) {
+            try {
+              const runRes = await fetch(`/api/v1/generation-runs/${runIdToTrack}`);
+              const runData = await runRes.json();
+              if (runData.success && runData.run) {
+                setActiveRun(runData.run);
+                if (runData.events && runData.events.length > 0) {
+                  setEvents(runData.events);
+                }
+                if (runData.buildResults) {
+                  setBuildResults(runData.buildResults);
+                }
+                const isRunActive = [
+                  'queued',
+                  'planning',
+                  'generating',
+                  'validating',
+                  'building',
+                  'repairing',
+                  'starting',
+                ].includes(runData.run.status);
+
+                if (isRunActive) {
+                  setIsProcessing(true);
+                  connectSSE(runIdToTrack);
+                }
+              }
+            } catch (runErr) {
+              console.warn('Failed to load initial run details:', runErr);
+            }
+          }
+
+          // Autostart initial generation if navigated directly from hero or applications and no versions exist yet
+          const shouldAutostart = searchParams.get('autostart') === 'true';
+          const hasNoRunsOrVersions = !runIdToTrack && (!versData.versions || versData.versions.length === 0);
+          if (shouldAutostart && hasNoRunsOrVersions && data.project?.description) {
+            handleSendMessage(data.project.description);
+          }
+        } else if (!data.success) {
+          setError(data.error || 'Failed to load project');
+        }
+      } catch (err: any) {
+        if (!ignore) setError(err.message);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+
+    loadWorkspace();
+    return () => {
+      ignore = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, paramRunId]);
+
+  // Cleanup EventSource on unmount
+  useEffect(() => {
+    return () => {
+      if (activeEventSourceRef.current) {
+        activeEventSourceRef.current.close();
+        activeEventSourceRef.current = null;
+      }
+    };
+  }, []);
+
+  // Resilient fallback polling loop while processing
+  useEffect(() => {
+    if (!isProcessing || !activeRun?.id) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/v1/generation-runs/${activeRun.id}`);
+        const data = await res.json();
+        if (data.success && data.run) {
+          if (data.events && data.events.length > 0) {
+            setEvents(data.events);
+          }
+          setActiveRun(data.run);
+          if (data.buildResults) {
+            setBuildResults(data.buildResults);
+          }
+          if (['completed', 'failed', 'cancelled'].includes(data.run.status)) {
+            setIsProcessing(false);
+            if (activeEventSourceRef.current) {
+              activeEventSourceRef.current.close();
+              activeEventSourceRef.current = null;
+            }
+            reloadVersionsAndFiles();
+          }
+        }
+      } catch (err) {
+        console.warn('Run status poll check error:', err);
+      }
+    }, 1500);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProcessing, activeRun?.id]);
 
   // Handle version selection
   const handleSelectVersion = async (versionId: string) => {

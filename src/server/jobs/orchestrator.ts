@@ -86,15 +86,18 @@ export class ProjectOrchestrator {
         generatedFiles = await generateProjectFiles(plan, plan.specification);
       }
 
-      for (const f of generatedFiles) {
-        await db.addGenerationEvent(runId, {
-          generationRunId: runId,
-          sequenceNumber: 10,
-          eventType: 'file_generated',
-          message: `Generated file: ${f.path} (${f.responsibility})`,
-          metadata: { path: f.path, sizeBytes: f.sizeBytes },
-        });
-      }
+      // Parallelize file generation event logging to reduce sequential DB round-trip latency
+      await Promise.all(
+        generatedFiles.map((f, idx) =>
+          db.addGenerationEvent(runId, {
+            generationRunId: runId,
+            sequenceNumber: 10 + idx,
+            eventType: 'file_generated',
+            message: `Generated file: ${f.path} (${f.responsibility})`,
+            metadata: { path: f.path, sizeBytes: f.sizeBytes },
+          })
+        )
+      );
 
       if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
 

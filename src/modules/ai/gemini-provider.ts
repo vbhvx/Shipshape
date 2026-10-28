@@ -211,16 +211,14 @@ Target Routes: ${JSON.stringify(targetRoutes)}
 Core Features: ${JSON.stringify(coreFeatures)}
 Data Model Entities: ${JSON.stringify(dataEntities)}
 
-Generate all necessary files:
-- package.json
-- tsconfig.json
-- src/app/layout.tsx
-- src/app/globals.css
+Focus on synthesizing the core application logic and components:
 - src/app/page.tsx (Dashboard with metrics, interactive quick-add, and checklist items)
 - src/app/explore/page.tsx (Filterable data table and CSV export)
 - src/components/HeaderNav.tsx
 - src/components/ItemModal.tsx
-- src/lib/storage.ts (Typed storage manager with seed data and persistence)`;
+- src/lib/storage.ts (Typed storage manager with seed data and persistence)
+
+Standard configuration files (package.json, tsconfig.json, globals.css, layout.tsx) are automatically supplied by the platform harness.`;
 
     try {
       let result;
@@ -265,19 +263,11 @@ Generate all necessary files:
         });
       }
 
-      // Ensure required core files exist, falling back to deterministic templates if missing
-      const requiredPaths = ['package.json', 'tsconfig.json', 'src/app/layout.tsx', 'src/app/page.tsx', 'src/lib/storage.ts'];
+      // Ensure all standard core template files exist, falling back to deterministic templates for any omitted files
       const deterministicFallbackFiles = await generateProjectFiles(plan, specification);
-
-      for (const reqPath of requiredPaths) {
-        if (!sanitizedFiles.some((f) => f.path === reqPath)) {
-          const fallbackFile = deterministicFallbackFiles.find((f) => f.path === reqPath);
-          if (fallbackFile) {
-            sanitizedFiles.push(fallbackFile);
-            if (onLog) {
-              await onLog(`[AI PROVIDER] Appended template file for missing manifest component: ${reqPath}`, 'stdout');
-            }
-          }
+      for (const fallbackFile of deterministicFallbackFiles) {
+        if (!sanitizedFiles.some((f) => f.path === fallbackFile.path)) {
+          sanitizedFiles.push(fallbackFile);
         }
       }
 

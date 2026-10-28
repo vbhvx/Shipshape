@@ -19,21 +19,23 @@ export class SandboxManager {
     try {
       await fs.mkdir(safeProjectDir, { recursive: true });
 
-      // Write project files inside the sandbox workspace with path containment checks
-      for (const f of files) {
-        const pathValidation = validateSafePath(f.path);
-        if (!pathValidation.isValid) {
-          throw new Error(`Unsafe file path in generated files: ${pathValidation.error}`);
-        }
+      // Write project files inside the sandbox workspace with path containment checks in parallel
+      await Promise.all(
+        files.map(async (f) => {
+          const pathValidation = validateSafePath(f.path);
+          if (!pathValidation.isValid) {
+            throw new Error(`Unsafe file path in generated files: ${pathValidation.error}`);
+          }
 
-        const fullPath = path.resolve(safeProjectDir, pathValidation.normalizedPath);
-        if (!fullPath.startsWith(safeProjectDir + path.sep) && fullPath !== safeProjectDir) {
-          throw new Error(`File path escapes workspace directory: ${f.path}`);
-        }
+          const fullPath = path.resolve(safeProjectDir, pathValidation.normalizedPath);
+          if (!fullPath.startsWith(safeProjectDir + path.sep) && fullPath !== safeProjectDir) {
+            throw new Error(`File path escapes workspace directory: ${f.path}`);
+          }
 
-        await fs.mkdir(path.dirname(fullPath), { recursive: true });
-        await fs.writeFile(fullPath, f.content, 'utf-8');
-      }
+          await fs.mkdir(path.dirname(fullPath), { recursive: true });
+          await fs.writeFile(fullPath, f.content, 'utf-8');
+        })
+      );
     } catch (err) {
       // In serverless / read-only environments, ephemeral filesystem writes may fail.
       // We log a warning but do not crash the generation pipeline because the live preview

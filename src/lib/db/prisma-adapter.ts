@@ -571,43 +571,45 @@ export const prismaAdapter = {
           },
         });
 
-        // Step 3: Persist all generated project files
-        for (const f of files) {
-          const fileId = `${projectId}_${version.id}_${f.path.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-          await tx.projectFile.upsert({
-            where: {
-              projectId_versionId_path: {
+        // Step 3: Persist all generated project files in parallel
+        await Promise.all(
+          files.map((f) => {
+            const fileId = `${projectId}_${version.id}_${f.path.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+            return tx.projectFile.upsert({
+              where: {
+                projectId_versionId_path: {
+                  projectId,
+                  versionId: version.id,
+                  path: f.path,
+                },
+              },
+              update: {
+                content: f.content,
+                sizeBytes: Buffer.byteLength(f.content, 'utf-8'),
+                mimeType: f.mimeType || 'text/plain',
+                responsibility: f.responsibility || '',
+                fileType: f.fileType || 'lib',
+                isNew: f.isNew ?? false,
+                isModified: f.isModified ?? false,
+                updatedAt: new Date(),
+              },
+              create: {
+                id: fileId,
                 projectId,
                 versionId: version.id,
                 path: f.path,
+                content: f.content,
+                sizeBytes: Buffer.byteLength(f.content, 'utf-8'),
+                mimeType: f.mimeType || 'text/plain',
+                responsibility: f.responsibility || '',
+                fileType: f.fileType || 'lib',
+                isNew: f.isNew ?? false,
+                isModified: f.isModified ?? false,
+                updatedAt: new Date(),
               },
-            },
-            update: {
-              content: f.content,
-              sizeBytes: Buffer.byteLength(f.content, 'utf-8'),
-              mimeType: f.mimeType || 'text/plain',
-              responsibility: f.responsibility || '',
-              fileType: f.fileType || 'lib',
-              isNew: f.isNew ?? false,
-              isModified: f.isModified ?? false,
-              updatedAt: new Date(),
-            },
-            create: {
-              id: fileId,
-              projectId,
-              versionId: version.id,
-              path: f.path,
-              content: f.content,
-              sizeBytes: Buffer.byteLength(f.content, 'utf-8'),
-              mimeType: f.mimeType || 'text/plain',
-              responsibility: f.responsibility || '',
-              fileType: f.fileType || 'lib',
-              isNew: f.isNew ?? false,
-              isModified: f.isModified ?? false,
-              updatedAt: new Date(),
-            },
-          });
-        }
+            });
+          })
+        );
 
         // Step 4: Atomically update the project's activeVersionId and status to 'running'
         await tx.project.update({

@@ -93,20 +93,10 @@ export default function ApplicationsChatPage() {
       }
 
       const projectId = json.project.id;
-
-      // 2. Trigger Generation Pipeline Run
-      const genRes = await fetch(`/api/v1/projects/${projectId}/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: promptText.trim() }),
-      });
-      const genData = await genRes.json();
-      const runId = genData?.runId;
-
       sessionStorage.removeItem('shipshape_pending_prompt');
 
-      // Redirect into workspace with runId
-      router.push(runId ? `/workspace/${projectId}?runId=${runId}` : `/workspace/${projectId}`);
+      // Navigate immediately into the workspace with autostart
+      router.push(`/workspace/${projectId}?autostart=true`);
     } catch (err: any) {
       console.error('Error during generation:', err);
       setError(err.message || 'An error occurred while creating the project.');

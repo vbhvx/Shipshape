@@ -83,22 +83,10 @@ export default function HeroPromptBox() {
       }
 
       const projectId = json.project.id;
-
-      // 2. Trigger Generation Pipeline Run in the background
-      const genRes = await fetch(`/api/v1/projects/${projectId}/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: promptText.trim() }),
-      });
-      const genData = await genRes.json();
-      const runId = genData?.runId;
-
-      // 3. Navigate into the Workspace with runId
       sessionStorage.removeItem('shipshape_pending_prompt');
-      const targetUrl = runId
-        ? `/workspace/${projectId}?runId=${runId}`
-        : `/workspace/${projectId}`;
-      router.push(targetUrl);
+
+      // Navigate immediately into the workspace with autostart
+      router.push(`/workspace/${projectId}?autostart=true`);
     } catch (err: any) {
       console.error('Failed to create project from hero:', err);
       setError(err.message || 'Something went wrong creating your project. Please try again.');
