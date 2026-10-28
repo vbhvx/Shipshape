@@ -38,7 +38,7 @@ export async function GET(
       success: true,
       run,
       events,
-      logsCount: logs.length,
+      buildLogs: logs,
       buildResults,
     });
   } catch (err: unknown) {

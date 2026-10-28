@@ -297,9 +297,13 @@ export const PlanRequestSchema = z.object({
 });
 
 export const GenerateRequestSchema = z.object({
-  prompt: z.string().optional(),
-  plan: z.any().optional(),
-  modelProvider: z.enum(['gemini', 'openai', 'deterministic']).optional(),
+  prompt: z.string().min(3).max(5000).optional(),
+  // Plans are generated server-side today. Keep this optional for backwards
+  // compatibility with callers that already have a plan, but reject scalars.
+  plan: z.object({}).passthrough().optional(),
+  modelProvider: z.literal('deterministic').optional(),
+}).refine((value) => Boolean(value.prompt || value.plan), {
+  message: 'Provide a build prompt or a structured plan',
 });
 
 export const ModifyRequestSchema = z.object({

@@ -144,14 +144,13 @@ function renderGeneratedPreviewApp(
 
   <!-- Route Content -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
-    ${
-      isExplore
-        ? renderDomainExplorer(domain)
-        : isAnalytics
+    ${isExplore
+      ? renderDomainExplorer(domain)
+      : isAnalytics
         ? renderDomainAnalytics(domain)
         : isSettings
-        ? renderDomainSettings(appName, domain, projectId)
-        : renderDomainHome(appName, spec?.description, domain)
+          ? renderDomainSettings(appName, domain, projectId)
+          : renderDomainHome(appName, spec?.description, domain)
     }
   </main>
 
@@ -479,17 +478,16 @@ function renderDomainExplorer(domain: any): string {
           </thead>
           <tbody class="divide-y divide-zinc-800/60" id="explorer-tbody">
             ${domain.seedItems
-              .map(
-                (item: any) => `
+      .map(
+        (item: any) => `
               <tr class="hover:bg-zinc-800/30">
                 <td class="px-4 py-3 font-medium text-zinc-200">${escapeHtml(item.title)}</td>
                 <td class="px-4 py-3 text-zinc-400">${escapeHtml(item.category || 'General')}</td>
                 <td class="px-4 py-3">
-                  <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${
-                    item.status === 'done' || item.completed
-                      ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                      : 'bg-zinc-800 text-zinc-300'
-                  }">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${item.status === 'done' || item.completed
+            ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+            : 'bg-zinc-800 text-zinc-300'
+          }">
                     ${escapeHtml(item.status || 'active')}
                   </span>
                 </td>
@@ -499,8 +497,8 @@ function renderDomainExplorer(domain: any): string {
                 </td>
               </tr>
             `
-              )
-              .join('')}
+      )
+      .join('')}
           </tbody>
         </table>
       </div>

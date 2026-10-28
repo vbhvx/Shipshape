@@ -119,7 +119,7 @@ export class SandboxManager {
       createdAt: new Date().toISOString(),
     });
 
-    await db.addBuildLog(runId, 'stdout', '[SANDBOX] Application structure validated. Dynamic preview renderer ready.');
+    await db.addBuildLog(runId, 'stdout', '[PREVIEW] Application structure validated. Generated preview renderer ready; no package installation or compiler build was run.');
     results.push({
       id: `check_${Date.now()}_build`,
       generationRunId: runId,
@@ -134,7 +134,8 @@ export class SandboxManager {
   }
 
   /**
-   * Starts or refreshes an isolated sandbox runtime session.
+   * Records workspace metadata for the authenticated preview renderer.
+   * This does not execute untrusted generated code or start a Node process.
    */
   static async startSandbox(projectId: string, files: GeneratedFile[]): Promise<SandboxSession> {
     const workspaceDir = await this.prepareWorkspace(projectId, files);

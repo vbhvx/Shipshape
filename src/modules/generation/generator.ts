@@ -36,10 +36,10 @@ export async function generateProjectFiles(
           dev: 'next dev',
           build: 'next build',
           start: 'next start',
-          lint: 'next lint',
+          lint: 'eslint .',
         },
         dependencies: {
-          next: '^14.2.0',
+          next: '^16.4.3',
           react: '^18.3.0',
           'react-dom': '^18.3.0',
           'lucide-react': '^0.395.0',
@@ -218,7 +218,6 @@ export function exportToCSV(items: Item[], filename = 'export.csv'): void {
     content: `'use client';
 
 import React from 'react';
-import Link from 'next/navigation';
 
 export default function HeaderNav({ activePath = '/' }: { activePath?: string }) {
   const navLinks = [
@@ -396,7 +395,7 @@ export default function ItemModal({ isOpen, onClose, onSave, initialItem }: Item
 }
 `
     : isFinance
-    ? `'use client';
+      ? `'use client';
 
 import React, { useState } from 'react';
 import { Item } from '@/lib/storage';
@@ -530,7 +529,7 @@ export default function ItemModal({ isOpen, onClose, onSave, initialItem }: Item
   );
 }
 `
-    : `'use client';
+      : `'use client';
 
 import React, { useState } from 'react';
 import { Item } from '@/lib/storage';

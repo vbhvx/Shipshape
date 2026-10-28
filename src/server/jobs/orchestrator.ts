@@ -122,13 +122,13 @@ export class ProjectOrchestrator {
 
       if (await this.isCancelled(runId)) return { success: false, error: 'Cancelled' };
 
-      // Step 5: Start Sandbox Runtime & Live Preview
+      // Step 5: Prepare workspace metadata and authenticated preview renderer
       await db.updateGenerationRun(runId, { status: 'starting' });
       await db.addGenerationEvent(runId, {
         generationRunId: runId,
         sequenceNumber: 40,
         eventType: 'step_started',
-        message: 'Initializing sandbox session and preview route',
+        message: 'Preparing workspace snapshot and authenticated preview route',
       });
 
       const sandboxSession = await SandboxManager.startSandbox(projectId, finalFiles);
@@ -138,16 +138,22 @@ export class ProjectOrchestrator {
         generationRunId: runId,
         sequenceNumber: 50,
         eventType: 'preview_ready',
-        message: 'Live preview session is active',
+        message: 'Authenticated generated preview is available',
         metadata: { previewUrl: sandboxSession.hostUrl, port: sandboxSession.port },
       });
 
       // Step 6: Atomically publish version snapshot, persist files, and complete run
+      const existingVersions = await db.listVersions(projectId);
+      const nextVersionNumber = existingVersions.length > 0
+        ? Math.max(...existingVersions.map((version) => version.versionNumber)) + 1
+        : 1;
+      const project = await db.getProject(projectId);
       const versionId = `ver_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       const newVersion: ProjectVersion = {
         id: versionId,
         projectId,
-        versionNumber: 1,
+        parentVersionId: project?.activeVersionId,
+        versionNumber: nextVersionNumber,
         sourceManifest: finalFiles.map((f) => f.path),
         changeSummary: 'Initial application generation',
         validationStatus: 'passed',
@@ -181,6 +187,7 @@ export class ProjectOrchestrator {
         errorCode: 'ORCHESTRATION_ERROR',
         errorMessage: err.message || 'Unknown orchestration error',
       });
+      await db.updateProject(projectId, { status: 'error' });
       return { success: false, error: err.message };
     }
   }
@@ -305,6 +312,7 @@ export class ProjectOrchestrator {
         finishedAt: new Date().toISOString(),
         errorMessage: err.message,
       });
+      await db.updateProject(projectId, { status: 'error' });
       return { success: false, error: err.message };
     }
   }

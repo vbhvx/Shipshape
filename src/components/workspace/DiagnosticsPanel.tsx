@@ -25,7 +25,7 @@ export default function DiagnosticsPanel({
       <div className="p-4 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Terminal className="w-4 h-4 text-zinc-300" />
-          <span className="font-semibold text-zinc-200">Diagnostics & Execution Logs</span>
+            <span className="font-semibold text-zinc-200">Diagnostics & Validation Logs</span>
           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-900 text-zinc-300 border border-zinc-700/80">
             {hasErrors ? 'ATTENTION REQUIRED' : 'HEALTHY / VERIFIED'}
           </span>
@@ -78,7 +78,7 @@ export default function DiagnosticsPanel({
       <div className="flex-1 overflow-y-auto p-4 font-mono text-[11px] space-y-1 bg-black/90">
         {logs.length === 0 ? (
           <div className="text-zinc-600 italic py-6 text-center">
-            No execution logs recorded yet. Build and sandbox output will stream here.
+            No validation logs recorded yet. Build output appears only when a real build runner is configured.
           </div>
         ) : (
           logs.map((l) => (

@@ -3,6 +3,7 @@ import {
   CreateProjectSchema,
   UpdateProjectSchema,
   PlanRequestSchema,
+  GenerateRequestSchema,
   ModifyRequestSchema,
   RestoreVersionSchema,
 } from '../../src/types';
@@ -93,6 +94,27 @@ describe('API Request Validation Schemas', () => {
     it('rejects prompt that is too short', () => {
       const result = PlanRequestSchema.safeParse({ prompt: 'ab' });
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe('GenerateRequestSchema', () => {
+    it('accepts a bounded deterministic build prompt', () => {
+      expect(
+        GenerateRequestSchema.safeParse({
+          prompt: 'Build a customer feedback portal with triage',
+          modelProvider: 'deterministic',
+        }).success
+      ).toBe(true);
+    });
+
+    it('rejects empty requests and unavailable provider labels', () => {
+      expect(GenerateRequestSchema.safeParse({}).success).toBe(false);
+      expect(
+        GenerateRequestSchema.safeParse({
+          prompt: 'Build a dashboard',
+          modelProvider: 'gemini',
+        }).success
+      ).toBe(false);
     });
   });
 

@@ -47,6 +47,12 @@ describe('End-to-End Generation, Execution, Modification & Export Lifecycle', ()
     expect(generatedFiles.some((f) => f.path === 'src/app/explore/page.tsx')).toBe(true);
     expect(generatedFiles.some((f) => f.path === 'src/lib/storage.ts')).toBe(true);
 
+    const packageManifest = generatedFiles.find((f) => f.path === 'package.json');
+    const header = generatedFiles.find((f) => f.path === 'src/components/HeaderNav.tsx');
+    expect(packageManifest?.content).toContain('"next": "^16.4.3"');
+    expect(packageManifest?.content).toContain('"lint": "eslint ."');
+    expect(header?.content).not.toContain("from 'next/navigation'");
+
     // Save Version 1
     v1Id = `ver_e2e_1`;
     const v1: ProjectVersion = {

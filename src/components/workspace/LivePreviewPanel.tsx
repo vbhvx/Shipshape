@@ -58,9 +58,8 @@ export default function LivePreviewPanel({
 
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-zinc-950 border border-zinc-800 text-[11px] font-mono text-zinc-400 max-w-sm truncate">
             <span
-              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                isRunning ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'
-              }`}
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${isRunning ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'
+                }`}
             />
             <span className="text-zinc-200 font-bold">https://</span>
             <span className="text-zinc-300">sandbox-{sanitizedSubdomain}.shipshape.run</span>
@@ -71,27 +70,24 @@ export default function LivePreviewPanel({
         <div className="flex items-center gap-1 bg-zinc-950 p-0.5 rounded-lg border border-zinc-800">
           <button
             onClick={() => setViewport('desktop')}
-            className={`p-1 rounded transition ${
-              viewport === 'desktop' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
+            className={`p-1 rounded transition ${viewport === 'desktop' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
             title="Desktop 100%"
           >
             <Monitor className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => setViewport('tablet')}
-            className={`p-1 rounded transition ${
-              viewport === 'tablet' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
+            className={`p-1 rounded transition ${viewport === 'tablet' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
             title="Tablet (768px)"
           >
             <Tablet className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => setViewport('mobile')}
-            className={`p-1 rounded transition ${
-              viewport === 'mobile' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
+            className={`p-1 rounded transition ${viewport === 'mobile' ? 'bg-zinc-800 text-white font-semibold' : 'text-zinc-500 hover:text-zinc-300'
+              }`}
             title="Mobile (375px)"
           >
             <Smartphone className="w-3.5 h-3.5" />

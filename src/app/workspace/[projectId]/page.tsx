@@ -305,17 +305,19 @@ function WorkspaceContent({
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
 
-      setActiveRun({
-        id: data.runId,
-        projectId,
-        runType: hasBaseVersion ? 'modification' : 'generation',
-        status: 'queued',
-        modelProvider: 'deterministic',
-        modelIdentifier: 'deterministic-engine-v1',
-        attemptCount: 1,
-        prompt: text,
-        startedAt: new Date().toISOString(),
-      });
+      setActiveRun(
+        data.run || {
+          id: data.runId,
+          projectId,
+          runType: hasBaseVersion ? 'modification' : 'generation',
+          status: data.status || 'queued',
+          modelProvider: 'deterministic',
+          modelIdentifier: 'deterministic-engine-v1',
+          attemptCount: 1,
+          prompt: text,
+          startedAt: new Date().toISOString(),
+        }
+      );
 
       // Stream progress
       connectSSE(data.runId);

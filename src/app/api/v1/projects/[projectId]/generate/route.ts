@@ -1,17 +1,17 @@
-import { NextRequest, NextResponse, after } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { createPlanFromPrompt } from '@/modules/planning/planning-engine';
 import { ProjectOrchestrator } from '@/server/jobs/orchestrator';
-import { GenerationRun } from '@/types';
+import { ApplicationPlan, GenerateRequestSchema, GenerationRun } from '@/types';
 import {
   requireAuth,
   AuthSessionError,
   getOwnedProject,
 } from '@/lib/auth/session';
 
-// Bounded execution duration for post-response generation work.
-// Note: maxDuration = 60 requires a Vercel Pro or Enterprise plan.
-// If deploying on a Vercel Hobby (Free) account, reduce to 15 to avoid deployment build failure.
+// This workflow executes inside the request so a run always reaches a durable
+// terminal state. A production deployment that needs longer AI jobs should
+// replace this with a durable queue/worker, not a post-response callback.
 export const maxDuration = 60;
 
 export async function POST(
@@ -31,14 +31,31 @@ export async function POST(
       );
     }
 
-    const body = await req.json().catch(() => ({}));
-    let plan = body.plan;
+    const body = await req.json().catch(() => null);
+    const parsed = GenerateRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid generation request', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
 
-    // If no explicit plan passed, load from DB or synthesize from prompt/description.
+    const activeRun = await db.getLatestGenerationRun(projectId);
+    if (activeRun && ['queued', 'planning', 'generating', 'validating', 'building', 'repairing', 'starting', 'preview_ready'].includes(activeRun.status)) {
+      return NextResponse.json(
+        { success: false, error: 'A generation is already in progress for this project', runId: activeRun.id },
+        { status: 409 }
+      );
+    }
+
+    let plan = parsed.data.plan as ApplicationPlan | undefined;
+
+    // A new prompt intentionally produces a fresh plan. Reusing a prior
+    // specification here made retries silently ignore what the user typed.
     if (!plan) {
       const spec = await db.getSpecification(projectId);
 
-      if (spec) {
+      if (spec && !parsed.data.prompt) {
         plan = await createPlanFromPrompt(
           projectId,
           project.name,
@@ -46,13 +63,13 @@ export async function POST(
           spec
         );
       } else {
-        const prompt =
-          body.prompt || project.description || 'Full-stack application';
+        const prompt = parsed.data.prompt || project.description || 'Full-stack application';
 
         plan = await createPlanFromPrompt(
           projectId,
           project.name,
-          prompt
+          prompt,
+          spec
         );
 
         await db.saveSpecification(plan.specification);
@@ -68,32 +85,27 @@ export async function POST(
       projectId,
       runType: 'generation',
       status: 'queued',
-      modelProvider: body.modelProvider || 'deterministic',
+      modelProvider: 'deterministic',
       modelIdentifier: 'deterministic-engine-v1',
       attemptCount: 1,
-      prompt: body.prompt || project.description,
+      prompt: parsed.data.prompt || project.description,
       startedAt: new Date().toISOString(),
     };
 
     await db.saveGenerationRun(newRun);
     await db.updateProject(projectId, { status: 'generating' });
 
-    // Schedule bounded post-response generation using Next.js after().
-    // Note: after() keeps the serverless execution context alive until the promise resolves,
-    // within the configured maxDuration. It is not a durable background queue.
-    after(async () => {
-      try {
-        await ProjectOrchestrator.runFullGeneration(runId, projectId, plan);
-      } catch (err) {
-        console.error(`Post-response generation failed for run ${runId}:`, err);
-      }
-    });
+    const result = await ProjectOrchestrator.runFullGeneration(runId, projectId, plan);
+    const run = await db.getGenerationRun(runId);
 
     return NextResponse.json({
       success: true,
       runId,
-      status: 'queued',
-      message: 'Generation run started successfully',
+      run,
+      status: run?.status || (result.success ? 'completed' : 'failed'),
+      message: result.success
+        ? 'Generation completed successfully'
+        : 'Generation failed; inspect the run diagnostics for details',
     });
   } catch (err: unknown) {
     if (err instanceof AuthSessionError) {
