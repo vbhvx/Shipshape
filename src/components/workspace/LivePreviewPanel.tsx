@@ -14,17 +14,24 @@ interface LivePreviewPanelProps {
   projectId: string;
   previewUrl?: string;
   isRunning: boolean;
+  activeVersionId?: string | null;
+  refreshTrigger?: number;
 }
 
 export default function LivePreviewPanel({
   projectId,
   previewUrl,
   isRunning,
+  activeVersionId,
+  refreshTrigger,
 }: LivePreviewPanelProps) {
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const targetUrl = previewUrl || `/api/v1/preview/${projectId}`;
+  const versionQuery = activeVersionId
+    ? `?versionId=${activeVersionId}&t=${refreshKey + (refreshTrigger || 0)}`
+    : `?t=${refreshKey + (refreshTrigger || 0)}`;
+  const targetUrl = previewUrl || `/api/v1/preview/${projectId}${versionQuery}`;
   const sanitizedSubdomain = projectId.replace(/[^a-zA-Z0-9-]/g, '-').slice(0, 16).replace(/^-+|-+$/g, '');
 
   const handleRefresh = () => {
@@ -118,7 +125,7 @@ export default function LivePreviewPanel({
           className={`h-full transition-all duration-300 rounded-xl overflow-hidden shadow-2xl border border-zinc-800 bg-black ${getFrameWidth()}`}
         >
           <iframe
-            key={refreshKey}
+            key={`${refreshKey}_${refreshTrigger || 0}_${activeVersionId || ''}`}
             src={targetUrl}
             title="Shipshape Isolated Application Preview"
             sandbox="allow-scripts allow-forms allow-same-origin allow-modals"

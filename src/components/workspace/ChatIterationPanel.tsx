@@ -24,6 +24,9 @@ export default function ChatIterationPanel({
   projectName,
 }: ChatIterationPanelProps) {
   const [input, setInput] = useState('');
+  const [messages, setMessages] = useState<
+    { id: string; role: 'user' | 'assistant'; text: string; timestamp: string; isWorking?: boolean }[]
+  >([]);
 
   const quickPrompts = [
     'Add dark mode toggle and persistence',
@@ -35,9 +38,62 @@ export default function ChatIterationPanel({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isProcessing) return;
-    onSendMessage(input.trim());
+    const text = input.trim();
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setMessages((prev) => [
+      ...prev,
+      { id: 'usr_' + Date.now(), role: 'user', text, timestamp: now },
+      {
+        id: 'ast_' + Date.now(),
+        role: 'assistant',
+        text: `Analyzing instruction: "${text}". Synthesizing code changes and verifying build...`,
+        timestamp: now,
+        isWorking: true,
+      },
+    ]);
+
+    onSendMessage(text);
     setInput('');
   };
+
+  const handleQuickPrompt = (qText: string) => {
+    if (isProcessing) return;
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setMessages((prev) => [
+      ...prev,
+      { id: 'usr_' + Date.now(), role: 'user', text: qText, timestamp: now },
+      {
+        id: 'ast_' + Date.now(),
+        role: 'assistant',
+        text: `Analyzing instruction: "${qText}". Synthesizing code changes and verifying build...`,
+        timestamp: now,
+        isWorking: true,
+      },
+    ]);
+
+    onSendMessage(qText);
+  };
+
+  React.useEffect(() => {
+    if (!isProcessing) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.isWorking
+            ? {
+                ...m,
+                isWorking: false,
+                text:
+                  activeRun?.status === 'failed'
+                    ? `Modification failed: ${activeRun.errorMessage || 'Syntax or validation error occurred'}`
+                    : 'Modification synthesized, tested, and published to new version.',
+              }
+            : m
+        )
+      );
+    }
+  }, [isProcessing, activeRun?.status, activeRun?.errorMessage]);
 
   const progressSteps = [
     { key: 'planning', label: '1. Plan' },
@@ -188,6 +244,44 @@ export default function ChatIterationPanel({
             </div>
           ))
         )}
+
+        {/* Dynamic User & Agent Messages */}
+        {messages.map((m) => (
+          <div key={m.id} className="flex gap-2.5 items-start">
+            {m.role === 'user' ? (
+              <>
+                <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 shrink-0 mt-0.5">
+                  <User className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl rounded-tl-sm p-3.5 space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-zinc-500">
+                    <span className="font-mono uppercase tracking-wider">Iterative Request</span>
+                    <span>{m.timestamp}</span>
+                  </div>
+                  <p className="text-xs text-zinc-200 leading-relaxed font-medium">{m.text}</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-6 h-6 rounded-full bg-emerald-950 border border-emerald-700/60 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
+                  <Bot className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex-1 bg-zinc-900/90 border border-zinc-800 rounded-2xl rounded-tl-sm p-3.5 space-y-2">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="font-semibold text-zinc-200">Shipshape Engineering Agent</span>
+                    <span className="text-zinc-500 font-mono">{m.timestamp}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {m.isWorking && <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400 shrink-0" />}
+                    <p className={`text-xs leading-relaxed ${m.isWorking ? 'text-zinc-400' : 'text-zinc-200 font-medium'}`}>
+                      {m.text}
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Quick Prompts Suggestions */}
@@ -199,7 +293,7 @@ export default function ChatIterationPanel({
           {quickPrompts.map((q) => (
             <button
               key={q}
-              onClick={() => onSendMessage(q)}
+              onClick={() => handleQuickPrompt(q)}
               disabled={isProcessing}
               className="px-2 py-1 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 text-[11px] transition text-left disabled:opacity-50 cursor-pointer"
             >

@@ -24,7 +24,11 @@ export async function GET(
       });
     }
 
-    if (!project.activeVersionId) {
+    const url = new URL(req.url);
+    const requestedVersionId = url.searchParams.get('versionId');
+    const versionIdToLoad = requestedVersionId || project.activeVersionId;
+
+    if (!versionIdToLoad) {
       return new NextResponse(
         renderPreviewPending(project.name, 'Application is synthesizing codebase and sandbox preview.'),
         {
@@ -34,7 +38,7 @@ export async function GET(
       );
     }
 
-    const files = await db.getFilesForVersion(projectId, project.activeVersionId);
+    const files = await db.getFilesForVersion(projectId, versionIdToLoad);
     const spec = await db.getSpecification(projectId);
 
     const relativeRoute = subPath ? `/${subPath.join('/')}` : '/';

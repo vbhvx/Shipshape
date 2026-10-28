@@ -55,6 +55,7 @@ function WorkspaceContent({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
+  const [previewRefreshTrigger, setPreviewRefreshTrigger] = useState(0);
 
   // Tabs
   const [leftTab, setLeftTab] = useState<'chat' | 'plan' | 'versions'>('chat');
@@ -140,6 +141,7 @@ function WorkspaceContent({
         if (['completed', 'failed', 'cancelled'].includes(st.status)) {
           setIsProcessing(false);
           reloadVersionsAndFiles();
+          setPreviewRefreshTrigger((k) => k + 1);
         }
       } catch {}
     });
@@ -149,11 +151,26 @@ function WorkspaceContent({
       activeEventSourceRef.current = null;
       setIsProcessing(false);
       reloadVersionsAndFiles();
+      setPreviewRefreshTrigger((k) => k + 1);
     });
 
-    eventSource.addEventListener('error', () => {
+    eventSource.addEventListener('error', async () => {
       eventSource.close();
       activeEventSourceRef.current = null;
+      try {
+        const res = await fetch(`/api/v1/generation-runs/${runId}`);
+        const data = await res.json();
+        if (data.success && data.run) {
+          setActiveRun(data.run);
+          if (['completed', 'failed', 'cancelled'].includes(data.run.status)) {
+            setIsProcessing(false);
+            reloadVersionsAndFiles();
+            setPreviewRefreshTrigger((k) => k + 1);
+            return;
+          }
+        }
+      } catch {}
+      setIsProcessing(false);
     });
   };
 
@@ -297,30 +314,63 @@ function WorkspaceContent({
         ? { instruction: text, baseVersionId: activeVersionId }
         : { prompt: text };
 
+      // Set provisional active run so fallback polling doesn't immediately check old completed run
+      setActiveRun({
+        id: 'pending_' + Date.now(),
+        projectId,
+        runType: hasBaseVersion ? 'modification' : 'generation',
+        status: 'generating',
+        modelProvider: 'deterministic',
+        modelIdentifier: 'engine',
+        attemptCount: 1,
+        prompt: text,
+        startedAt: new Date().toISOString(),
+      });
+
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error || 'Failed to process modification');
 
-      setActiveRun(
-        data.run || {
-          id: data.runId,
-          projectId,
-          runType: hasBaseVersion ? 'modification' : 'generation',
-          status: data.status || 'queued',
-          modelProvider: 'deterministic',
-          modelIdentifier: 'deterministic-engine-v1',
-          attemptCount: 1,
-          prompt: text,
-          startedAt: new Date().toISOString(),
+      if (data.run) {
+        setActiveRun(data.run);
+      }
+
+      // Fetch newly generated run events and diagnostics immediately
+      if (data.runId) {
+        try {
+          const runRes = await fetch(`/api/v1/generation-runs/${data.runId}`);
+          const runData = await runRes.json();
+          if (runData.success) {
+            if (runData.events && runData.events.length > 0) {
+              setEvents(runData.events);
+            }
+            if (runData.buildResults) {
+              setBuildResults(runData.buildResults);
+            }
+            if (runData.buildLogs) {
+              setLogs(runData.buildLogs);
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to fetch updated run details:', e);
         }
-      );
+      }
 
-      // Stream progress
-      connectSSE(data.runId);
+      const terminalStatus = data.status || data.run?.status;
+      const isTerminal = ['completed', 'failed', 'cancelled'].includes(terminalStatus);
+
+      if (isTerminal) {
+        setIsProcessing(false);
+        await reloadVersionsAndFiles();
+        setPreviewRefreshTrigger((prev) => prev + 1);
+      } else {
+        // Stream progress if run is executing asynchronously
+        connectSSE(data.runId);
+      }
     } catch (err: any) {
       alert(`Execution error: ${err.message}`);
       setIsProcessing(false);
@@ -557,7 +607,9 @@ function WorkspaceContent({
             {rightTab === 'preview' && (
               <LivePreviewPanel
                 projectId={projectId}
-                isRunning={project.status === 'running' || !!activeVersionId}
+                isRunning={project?.status === 'running' || !!activeVersionId}
+                activeVersionId={activeVersionId}
+                refreshTrigger={previewRefreshTrigger}
               />
             )}
             {rightTab === 'code' && (
