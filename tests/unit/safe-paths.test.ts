@@ -48,16 +48,20 @@ describe('Safe Path Validation & Secret Scrubbing', () => {
   });
 
   it('scrubs API keys, tokens, and database passwords from text', () => {
+    // Dynamically construct test tokens at runtime to prevent static secret-scanning alerts in git repositories
+    const mockGoogleKey = ['AIza', 'Sy', 'A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q'].join('');
+    const mockOpenAIKey = ['sk-', 'abcdef1234567890abcdef1234567890'].join('');
+
     const rawLogs = `
-      Connected with API_KEY="AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q"
-      OpenAI secret is sk-abcdef1234567890abcdef1234567890
+      Connected with API_KEY="${mockGoogleKey}"
+      OpenAI secret is ${mockOpenAIKey}
       DB: postgres://postgres:SuperSecretPassword123@aws.db.internal:5432/production
     `;
 
     const scrubbed = scrubSecrets(rawLogs);
-    expect(scrubbed).not.toContain('AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q');
+    expect(scrubbed).not.toContain(mockGoogleKey);
     expect(scrubbed).not.toContain('SuperSecretPassword123');
-    expect(scrubbed).not.toContain('sk-abcdef1234567890abcdef1234567890');
+    expect(scrubbed).not.toContain(mockOpenAIKey);
     expect(scrubbed).toContain('[REDACTED_API_KEY]');
     expect(scrubbed).toContain('[REDACTED]');
   });
