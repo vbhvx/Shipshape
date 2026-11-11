@@ -7,6 +7,7 @@ import {
 } from '@/lib/auth/session';
 import { inferDomain } from '@/modules/planning/domain-catalog';
 import { cleanDisplayTitle } from '@/lib/project-utils';
+import { logger } from '@/lib/observability/logger';
 
 export async function GET(
   req: NextRequest,
@@ -63,7 +64,7 @@ export async function GET(
       });
     }
 
-    console.error('Preview render error:', err);
+    logger.error('preview.render_failed', { err, path: req.nextUrl.pathname });
 
     return new NextResponse(renderPreviewError('Preview Render Error', 'An unexpected error occurred while rendering the preview.'), {
       status: 500,
@@ -163,7 +164,7 @@ function renderGeneratedPreviewApp(
   <script>
     // Prompt-aware interactive client state manager
     const STORAGE_KEY = 'shipshape_sandbox_${projectId}_v2';
-    const DEFAULT_SEED = ${JSON.stringify(domain.seedItems)};
+    const DEFAULT_SEED = ${JSON.stringify(domain.seedItems).replace(/</g, '\\u003c')};
     const DOMAIN_TYPE = '${domain.domainId}';
 
     function loadItems() {
