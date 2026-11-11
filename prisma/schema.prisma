@@ -7,6 +7,7 @@ datasource db {
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
+  importFileExtension = ""
 }
 
 model User {
@@ -273,4 +274,18 @@ model IdempotencyRecord {
   createdAt       DateTime @default(now())
 
   @@map("idempotency_records")
+}
+
+// Fixed-window counters backing the distributed API rate limiter
+// (src/lib/http/rate-limit.ts). Rows are short-lived; expired windows are
+// pruned opportunistically by the limiter itself.
+model RateLimitBucket {
+  key         String
+  windowStart DateTime
+  count       Int      @default(0)
+  expiresAt   DateTime
+
+  @@id([key, windowStart])
+  @@index([expiresAt])
+  @@map("rate_limit_buckets")
 }

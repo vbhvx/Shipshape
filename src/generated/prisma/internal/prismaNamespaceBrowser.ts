@@ -66,7 +66,8 @@ export const ModelName = {
   ProviderConfiguration: 'ProviderConfiguration',
   UsageRecord: 'UsageRecord',
   AuditEvent: 'AuditEvent',
-  IdempotencyRecord: 'IdempotencyRecord'
+  IdempotencyRecord: 'IdempotencyRecord',
+  RateLimitBucket: 'RateLimitBucket'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -315,6 +316,16 @@ export const IdempotencyRecordScalarFieldEnum = {
 } as const
 
 export type IdempotencyRecordScalarFieldEnum = (typeof IdempotencyRecordScalarFieldEnum)[keyof typeof IdempotencyRecordScalarFieldEnum]
+
+
+export const RateLimitBucketScalarFieldEnum = {
+  key: 'key',
+  windowStart: 'windowStart',
+  count: 'count',
+  expiresAt: 'expiresAt'
+} as const
+
+export type RateLimitBucketScalarFieldEnum = (typeof RateLimitBucketScalarFieldEnum)[keyof typeof RateLimitBucketScalarFieldEnum]
 
 
 export const SortOrder = {

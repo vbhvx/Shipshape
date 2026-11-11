@@ -121,3 +121,8 @@ export type AuditEvent = Prisma.AuditEventModel
  * 
  */
 export type IdempotencyRecord = Prisma.IdempotencyRecordModel
+/**
+ * Model RateLimitBucket
+ * 
+ */
+export type RateLimitBucket = Prisma.RateLimitBucketModel
