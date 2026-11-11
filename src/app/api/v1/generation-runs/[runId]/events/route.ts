@@ -1,148 +1,97 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import {
-  requireAuth,
-  AuthSessionError,
-  getOwnedProject,
-} from '@/lib/auth/session';
+import { requireAuth, requireOwnedRun } from '@/lib/auth/session';
+import { isTerminal, reapIfStale } from '@/server/jobs/run-lifecycle';
+import { apiRoute } from '@/lib/http/handler';
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ runId: string }> }
-) {
-  try {
-    const user = await requireAuth();
-    const { runId } = await params;
+const POLL_INTERVAL_MS = 500;
+const HEARTBEAT_INTERVAL_MS = 15_000;
+const MAX_STREAM_DURATION_MS = 120_000;
 
-    const run = await db.getGenerationRun(runId);
-    if (!run) {
-      return NextResponse.json(
-        { success: false, error: 'Generation run not found' },
-        { status: 404 }
-      );
-    }
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    const project = await getOwnedProject(run.projectId, user.id);
-    if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Generation run not found' },
-        { status: 404 }
-      );
-    }
+/**
+ * Server-Sent Events feed for a generation run.
+ *
+ * Events are persisted by the orchestrator, so this stream polls durable
+ * storage rather than an in-process emitter: it works no matter which instance
+ * is executing the run. Polling is sequential (never overlapping queries),
+ * status frames are sent only on change, and comment heartbeats keep idle
+ * proxies from closing the connection.
+ */
+export const GET = apiRoute<{ runId: string }>('runs.events', async (req, { params, log }) => {
+  const user = await requireAuth();
+  const { runId } = await params;
+  await requireOwnedRun(runId, user.id);
 
-    const encoder = new TextEncoder();
-    let isAlive = true;
-    let lastEventCount = 0;
+  const encoder = new TextEncoder();
+  let closed = false;
 
-    const streamStartTime = Date.now();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (frame: string) => {
+        if (!closed) controller.enqueue(encoder.encode(frame));
+      };
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        controller.close();
+      };
+      req.signal.addEventListener('abort', close);
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        // Periodic poll and event dispatch loop
-        const interval = setInterval(async () => {
-          if (!isAlive) {
-            clearInterval(interval);
-            return;
+      const startedAt = Date.now();
+      let lastHeartbeat = startedAt;
+      let lastEventCount = 0;
+      let lastStatus: string | null = null;
+
+      try {
+        while (!closed) {
+          const found = await db.getGenerationRun(runId);
+          if (!found) {
+            send(`event: error\ndata: ${JSON.stringify({ error: 'Run not found' })}\n\n`);
+            break;
+          }
+          const run = await reapIfStale(found);
+
+          const events = await db.getGenerationEvents(runId);
+          for (const evt of events.slice(lastEventCount)) {
+            send(`id: ${evt.sequenceNumber}\nevent: message\ndata: ${JSON.stringify(evt)}\n\n`);
+          }
+          lastEventCount = Math.max(lastEventCount, events.length);
+
+          if (run.status !== lastStatus) {
+            send(`event: status\ndata: ${JSON.stringify({ status: run.status, finishedAt: run.finishedAt })}\n\n`);
+            lastStatus = run.status;
           }
 
-          try {
-            let currentRun = await db.getGenerationRun(runId);
-            if (!currentRun) {
-              controller.enqueue(
-                encoder.encode(`event: error\ndata: ${JSON.stringify({ error: 'Run not found' })}\n\n`)
-              );
-              clearInterval(interval);
-              controller.close();
-              return;
-            }
-
-            // Stale run auto-reaper: fail any run that has been active for more than 2 minutes
-            const isActive = !['completed', 'failed', 'cancelled'].includes(currentRun.status);
-            const isStale = isActive && (Date.now() - new Date(currentRun.startedAt).getTime() > 120_000);
-            if (isStale) {
-              await db.updateGenerationRun(runId, {
-                status: 'failed',
-                finishedAt: new Date().toISOString(),
-                errorCode: 'RUN_TIMEOUT',
-                errorMessage: 'Generation timed out after 2 minutes',
-              });
-              currentRun = {
-                ...currentRun,
-                status: 'failed',
-                finishedAt: new Date().toISOString(),
-                errorCode: 'RUN_TIMEOUT',
-                errorMessage: 'Generation timed out after 2 minutes',
-              };
-            }
-
-            const events = await db.getGenerationEvents(runId);
-
-            // Dispatch newly added events
-            if (events.length > lastEventCount) {
-              for (let i = lastEventCount; i < events.length; i++) {
-                const evt = events[i];
-                controller.enqueue(
-                  encoder.encode(`id: ${evt.sequenceNumber}\nevent: message\ndata: ${JSON.stringify(evt)}\n\n`)
-                );
-              }
-              lastEventCount = events.length;
-            }
-
-            // Emit status update
-            controller.enqueue(
-              encoder.encode(
-                `event: status\ndata: ${JSON.stringify({
-                  status: currentRun.status,
-                  finishedAt: currentRun.finishedAt,
-                })}\n\n`
-              )
-            );
-
-            // If run has finished or max stream duration reached, close stream cleanly
-            if (['completed', 'failed', 'cancelled'].includes(currentRun.status) || (Date.now() - streamStartTime > 120_000)) {
-              clearInterval(interval);
-              controller.enqueue(
-                encoder.encode(`event: done\ndata: ${JSON.stringify({ status: currentRun.status })}\n\n`)
-              );
-              controller.close();
-            }
-          } catch (err: any) {
-            console.error(`SSE stream error for run ${runId}:`, err);
-            clearInterval(interval);
-            controller.close();
+          if (isTerminal(run.status) || Date.now() - startedAt > MAX_STREAM_DURATION_MS) {
+            send(`event: done\ndata: ${JSON.stringify({ status: run.status })}\n\n`);
+            break;
           }
-        }, 500);
 
-        req.signal.addEventListener('abort', () => {
-          isAlive = false;
-          clearInterval(interval);
-        });
-      },
-      cancel() {
-        isAlive = false;
-      },
-    });
+          if (Date.now() - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
+            send(`: heartbeat\n\n`);
+            lastHeartbeat = Date.now();
+          }
 
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache, no-transform',
-        Connection: 'keep-alive',
-      },
-    });
-  } catch (err: unknown) {
-    if (err instanceof AuthSessionError) {
-      return NextResponse.json(
-        { success: false, error: err.message },
-        { status: err.status }
-      );
-    }
+          await sleep(POLL_INTERVAL_MS);
+        }
+      } catch (err) {
+        log.error('runs.events.stream_failed', { runId, err });
+      } finally {
+        close();
+      }
+    },
+    cancel() {
+      closed = true;
+    },
+  });
 
-    console.error('Failed to establish SSE stream:', err);
-
-    return NextResponse.json(
-      { success: false, error: 'Failed to establish event stream' },
-      { status: 500 }
-    );
-  }
-}
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    },
+  });
+}, { fallbackError: 'Failed to establish event stream' });
