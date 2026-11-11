@@ -6,7 +6,14 @@ import { ConsoleErrorCollector } from '@/modules/verification/console-error-coll
 import { BoundedRepairLoop } from '@/modules/repair/repair-loop';
 import { BenchmarkMetricsCollector } from '@/../tests/benchmark/metrics';
 
-describe('Phase 4 Milestone: End-to-End Execution Pipeline & Repair Convergence', () => {
+// This vertical slice needs a Docker daemon and a Playwright Chromium install.
+// It is skipped where they are absent (laptops, the default CI job) and is
+// mandatory when REQUIRE_SANDBOX_E2E=1, which the sandbox CI job sets.
+const sandboxRequired = process.env.REQUIRE_SANDBOX_E2E === '1';
+const sandboxAvailable =
+  (await DockerSandboxProvider.isDockerAvailable()) && (await PlaywrightRunner.isBrowserAvailable());
+
+describe.skipIf(!sandboxAvailable && !sandboxRequired)('Phase 4 Milestone: End-to-End Execution Pipeline & Repair Convergence', () => {
   let dockerAvailable = false;
   let browserAvailable = false;
   let provider: DockerSandboxProvider;
