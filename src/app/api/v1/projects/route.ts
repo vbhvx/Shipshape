@@ -1,87 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { CreateProjectSchema } from '@/types';
-import {
-  requireAuth,
-  AuthSessionError,
-} from '@/lib/auth/session';
+import { requireAuth } from '@/lib/auth/session';
+import { apiRoute, readJsonBody } from '@/lib/http/handler';
+import { validationFailed } from '@/lib/http/errors';
+import { enforceRateLimit, RateLimits } from '@/lib/http/rate-limit';
+import { newId } from '@/lib/ids';
 
-export async function GET() {
-  try {
-    const user = await requireAuth();
-    const projects = await db.listProjects(user.id);
+export const GET = apiRoute('projects.list', async () => {
+  const user = await requireAuth();
+  const projects = await db.listProjects(user.id);
 
-    return NextResponse.json({
-      success: true,
-      projects,
-    });
-  } catch (err: unknown) {
-    if (err instanceof AuthSessionError) {
-      return NextResponse.json(
-        { success: false, error: err.message },
-        { status: err.status }
-      );
-    }
+  return Response.json({ success: true, projects });
+}, { fallbackError: 'Failed to list projects' });
 
-    console.error('Failed to list projects:', err);
+export const POST = apiRoute('projects.create', async (req) => {
+  const user = await requireAuth();
+  await enforceRateLimit(RateLimits.mutation, user.id);
 
-    return NextResponse.json(
-      { success: false, error: 'Failed to list projects' },
-      { status: 500 }
-    );
+  const parsed = CreateProjectSchema.safeParse(await readJsonBody(req));
+  if (!parsed.success) {
+    throw validationFailed('Invalid project data', parsed.error.flatten());
   }
-}
 
-export async function POST(req: NextRequest) {
-  try {
-    const user = await requireAuth();
-    const body = await req.json();
-    const parsed = CreateProjectSchema.safeParse(body);
+  const projectId = newId('proj');
+  const project = await db.createProject({
+    id: projectId,
+    ownerUserId: user.id,
+    name: parsed.data.name,
+    description: parsed.data.description,
+    status: 'draft',
+  });
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid project data',
-          details: parsed.error.flatten(),
-        },
-        { status: 400 }
-      );
-    }
+  await db.recordAudit('project_created', projectId, user.id, { name: project.name });
 
-    const projectId = `proj_${Date.now()}_${Math.random()
-      .toString(36)
-      .substring(2, 7)}`;
-
-    const project = await db.createProject({
-      id: projectId,
-      ownerUserId: user.id,
-      name: parsed.data.name,
-      description: parsed.data.description,
-      status: 'draft',
-    });
-
-    await db.recordAudit('project_created', projectId, user.id, {
-      name: project.name,
-    });
-
-    return NextResponse.json(
-      { success: true, project },
-      { status: 201 }
-    );
-  } catch (err: unknown) {
-    if (err instanceof AuthSessionError) {
-      return NextResponse.json(
-        { success: false, error: err.message },
-        { status: err.status }
-      );
-    }
-
-    console.error('Failed to create project:', err);
-
-    return NextResponse.json(
-      { success: false, error: 'Failed to create project' },
-      { status: 500 }
-    );
-  }
-}
+  return Response.json({ success: true, project }, { status: 201 });
+}, { fallbackError: 'Failed to create project' });

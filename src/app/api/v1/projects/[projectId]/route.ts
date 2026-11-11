@@ -1,140 +1,73 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { UpdateProjectSchema } from '@/types';
-import {
-  requireAuth,
-  AuthSessionError,
-  getOwnedProject,
-} from '@/lib/auth/session';
+import { requireAuth, requireOwnedProject } from '@/lib/auth/session';
+import { apiRoute, readJsonBody } from '@/lib/http/handler';
+import { notFound, validationFailed } from '@/lib/http/errors';
+import { enforceRateLimit, RateLimits } from '@/lib/http/rate-limit';
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const user = await requireAuth();
-    const { projectId } = await params;
-    const project = await getOwnedProject(projectId, user.id);
+type Params = { projectId: string };
 
-    if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found' },
-        { status: 404 }
-      );
-    }
+export const GET = apiRoute<Params>('projects.get', async (_req, { params }) => {
+  const user = await requireAuth();
+  const { projectId } = await params;
+  const project = await requireOwnedProject(projectId, user.id);
 
-    const versions = await db.listVersions(projectId);
-    const spec = await db.getSpecification(projectId);
-    const sandbox = await db.getSandboxSession(projectId);
-    const latestRun = await db.getLatestGenerationRun(projectId);
+  const [versions, spec, sandbox, latestRun] = await Promise.all([
+    db.listVersions(projectId),
+    db.getSpecification(projectId),
+    db.getSandboxSession(projectId),
+    db.getLatestGenerationRun(projectId),
+  ]);
 
-    return NextResponse.json({
-      success: true,
-      project,
-      specification: spec,
-      latestVersion: versions[0] || null,
-      versionsCount: versions.length,
-      sandbox,
-      activeRun: latestRun,
-    });
-  } catch (err: unknown) {
-    if (err instanceof AuthSessionError) {
-      return NextResponse.json(
-        { success: false, error: err.message },
-        { status: err.status }
-      );
-    }
+  return Response.json({
+    success: true,
+    project,
+    specification: spec,
+    latestVersion: versions[0] || null,
+    versionsCount: versions.length,
+    sandbox,
+    activeRun: latestRun,
+  });
+}, { fallbackError: 'Failed to get project' });
 
-    console.error('Failed to get project:', err);
+export const PATCH = apiRoute<Params>('projects.update', async (req, { params }) => {
+  const user = await requireAuth();
+  const { projectId } = await params;
+  await requireOwnedProject(projectId, user.id);
+  await enforceRateLimit(RateLimits.mutation, user.id);
 
-    return NextResponse.json(
-      { success: false, error: 'Failed to get project' },
-      { status: 500 }
-    );
+  const parsed = UpdateProjectSchema.safeParse(await readJsonBody(req));
+  if (!parsed.success) {
+    throw validationFailed('Validation failed', parsed.error.format());
   }
-}
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const user = await requireAuth();
-    const { projectId } = await params;
-    const project = await getOwnedProject(projectId, user.id);
-
-    if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found' },
-        { status: 404 }
-      );
+  if (parsed.data.activeVersionId) {
+    // Prevent pointing a project at another tenant's version.
+    const version = await db.getVersion(parsed.data.activeVersionId);
+    if (!version || version.projectId !== projectId) {
+      throw notFound('Version not found');
     }
-
-    const body = await req.json();
-    const parsed = UpdateProjectSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: 'Validation failed', details: parsed.error.format() },
-        { status: 400 }
-      );
-    }
-
-    const updated = await db.updateProject(projectId, parsed.data);
-    if (!updated) {
-      return NextResponse.json({ success: false, error: 'Project not found' }, { status: 404 });
-    }
-    return NextResponse.json({ success: true, project: updated });
-  } catch (err: unknown) {
-    if (err instanceof AuthSessionError) {
-      return NextResponse.json(
-        { success: false, error: err.message },
-        { status: err.status }
-      );
-    }
-
-    console.error('Failed to update project:', err);
-
-    return NextResponse.json(
-      { success: false, error: 'Failed to update project' },
-      { status: 500 }
-    );
   }
-}
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const user = await requireAuth();
-    const { projectId } = await params;
-    const project = await getOwnedProject(projectId, user.id);
-
-    if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found' },
-        { status: 404 }
-      );
-    }
-
-    const success = await db.deleteProject(projectId);
-    if (!success) {
-      return NextResponse.json({ success: false, error: 'Project not found' }, { status: 404 });
-    }
-    return NextResponse.json({ success: true, message: 'Project archived' });
-  } catch (err: unknown) {
-    if (err instanceof AuthSessionError) {
-      return NextResponse.json(
-        { success: false, error: err.message },
-        { status: err.status }
-      );
-    }
-
-    console.error('Failed to delete project:', err);
-
-    return NextResponse.json(
-      { success: false, error: 'Failed to delete project' },
-      { status: 500 }
-    );
+  const updated = await db.updateProject(projectId, parsed.data);
+  if (!updated) {
+    throw notFound('Project not found');
   }
-}
+  await db.recordAudit('project_updated', projectId, user.id, { fields: Object.keys(parsed.data) });
+
+  return Response.json({ success: true, project: updated });
+}, { fallbackError: 'Failed to update project' });
+
+export const DELETE = apiRoute<Params>('projects.archive', async (_req, { params }) => {
+  const user = await requireAuth();
+  const { projectId } = await params;
+  await requireOwnedProject(projectId, user.id);
+
+  const success = await db.deleteProject(projectId);
+  if (!success) {
+    throw notFound('Project not found');
+  }
+  await db.recordAudit('project_archived', projectId, user.id);
+
+  return Response.json({ success: true, message: 'Project archived' });
+}, { fallbackError: 'Failed to delete project' });
