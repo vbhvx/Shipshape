@@ -1,93 +1,53 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import {
-  requireAuth,
-  AuthSessionError,
-  getOwnedProject,
-} from '@/lib/auth/session';
+import { UpdateSpecificationSchema, type ProjectSpecification } from '@/types';
+import { requireAuth, requireOwnedProject } from '@/lib/auth/session';
+import { apiRoute, readJsonBody } from '@/lib/http/handler';
+import { notFound, validationFailed } from '@/lib/http/errors';
+import { enforceRateLimit, RateLimits } from '@/lib/http/rate-limit';
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const user = await requireAuth();
-    const { projectId } = await params;
-    const project = await getOwnedProject(projectId, user.id);
+type Params = { projectId: string };
 
-    if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found' },
-        { status: 404 }
-      );
-    }
+export const GET = apiRoute<Params>('projects.specification.get', async (_req, { params }) => {
+  const user = await requireAuth();
+  const { projectId } = await params;
+  await requireOwnedProject(projectId, user.id);
 
-    const spec = await db.getSpecification(projectId);
-    if (!spec) {
-      return NextResponse.json({ success: false, error: 'Specification not found' }, { status: 404 });
-    }
-    return NextResponse.json({ success: true, specification: spec });
-  } catch (err: unknown) {
-    if (err instanceof AuthSessionError) {
-      return NextResponse.json(
-        { success: false, error: err.message },
-        { status: err.status }
-      );
-    }
-
-    console.error('Failed to get specification:', err);
-
-    return NextResponse.json(
-      { success: false, error: 'Failed to get specification' },
-      { status: 500 }
-    );
+  const spec = await db.getSpecification(projectId);
+  if (!spec) {
+    throw notFound('Specification not found');
   }
-}
+  return Response.json({ success: true, specification: spec });
+}, { fallbackError: 'Failed to get specification' });
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const user = await requireAuth();
-    const { projectId } = await params;
-    const project = await getOwnedProject(projectId, user.id);
+export const PATCH = apiRoute<Params>('projects.specification.update', async (req, { params }) => {
+  const user = await requireAuth();
+  const { projectId } = await params;
+  await requireOwnedProject(projectId, user.id);
+  await enforceRateLimit(RateLimits.mutation, user.id);
 
-    if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found' },
-        { status: 404 }
-      );
-    }
-
-    const spec = await db.getSpecification(projectId);
-    if (!spec) {
-      return NextResponse.json({ success: false, error: 'Specification not found' }, { status: 404 });
-    }
-
-    const updates = await req.json();
-    const updatedSpec = {
-      ...spec,
-      ...updates,
-      projectId,
-      versionNumber: spec.versionNumber + 1,
-    };
-
-    await db.saveSpecification(updatedSpec);
-    return NextResponse.json({ success: true, specification: updatedSpec });
-  } catch (err: unknown) {
-    if (err instanceof AuthSessionError) {
-      return NextResponse.json(
-        { success: false, error: err.message },
-        { status: err.status }
-      );
-    }
-
-    console.error('Failed to update specification:', err);
-
-    return NextResponse.json(
-      { success: false, error: 'Failed to update specification' },
-      { status: 500 }
-    );
+  const spec = await db.getSpecification(projectId);
+  if (!spec) {
+    throw notFound('Specification not found');
   }
-}
+
+  const parsed = UpdateSpecificationSchema.safeParse(await readJsonBody(req));
+  if (!parsed.success) {
+    throw validationFailed('Invalid specification update', parsed.error.flatten());
+  }
+
+  const updatedSpec = {
+    ...spec,
+    ...parsed.data,
+    id: spec.id,
+    projectId,
+    versionNumber: spec.versionNumber + 1,
+  } as ProjectSpecification;
+
+  await db.saveSpecification(updatedSpec);
+  await db.recordAudit('specification_updated', projectId, user.id, {
+    fields: Object.keys(parsed.data),
+    versionNumber: updatedSpec.versionNumber,
+  });
+
+  return Response.json({ success: true, specification: updatedSpec });
+}, { fallbackError: 'Failed to update specification' });
