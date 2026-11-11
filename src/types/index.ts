@@ -317,6 +317,24 @@ export const ModifyRequestSchema = z.object({
   baseVersionId: z.string().optional(),
 });
 
+// Only user-editable specification content. Identity and bookkeeping fields
+// (id, projectId, versionNumber, schemaVersion, createdAt) are server-owned;
+// `.strict()` rejects attempts to overwrite them.
+const SpecItemSchema = z.object({}).passthrough();
+
+export const UpdateSpecificationSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().min(1).max(5000).optional(),
+  targetUsers: z.array(z.string().max(500)).max(50).optional(),
+  routes: z.array(SpecItemSchema).max(100).optional(),
+  features: z.array(SpecItemSchema).max(200).optional(),
+  dataEntities: z.array(SpecItemSchema).max(100).optional(),
+  integrations: z.array(SpecItemSchema).max(50).optional(),
+  designSystem: SpecItemSchema.optional(),
+  technicalConstraints: z.array(z.string().max(1000)).max(100).optional(),
+  acceptanceCriteria: z.array(z.string().max(1000)).max(200).optional(),
+}).strict();
+
 export const RestoreVersionSchema = z.object({
   versionId: z.string().min(1),
   reason: z.string().optional(),
