@@ -10,38 +10,136 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 24
+  # Non-secret placeholders: these jobs never call Clerk or Gemini.
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+  CLERK_SECRET_KEY: sk_test_mock_secret_key_for_ci_pipeline_only
+
 jobs:
-  verify:
-    name: Build & Verify (Node 24 LTS)
+  quality:
+    name: Lint, typecheck & unit tests
     runs-on: ubuntu-latest
-
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shipshape_ci
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
-      CLERK_SECRET_KEY: sk_test_mock_secret_key_for_ci_pipeline_only
-      GEMINI_API_KEY: mock_gemini_key_for_ci_pipeline_only
-
+    timeout-minutes: 15
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js 24
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: 'npm'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Generated Prisma client is up to date
+        run: |
+          DIRECT_URL=postgresql://unused:unused@localhost:5432/unused npx prisma generate
+          git diff --exit-code -- src/generated || {
+            echo "::error::src/generated is stale. Run 'npx prisma generate' and commit the result."
+            exit 1
+          }
 
-      - name: Code quality lint
-        run: npm run lint
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
 
-      - name: TypeScript typecheck
-        run: npx tsc --noEmit
+  database:
+    name: Migrations & PostgreSQL integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shipshape_ci
+          # Deliberately not UTC: guards against timestamp/timestamptz comparison bugs.
+          TZ: Asia/Kolkata
+          PGTZ: Asia/Kolkata
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/shipshape_ci
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shipshape_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
 
-      - name: Run automated test suite
-        run: npm test
+      - name: Apply migrations to an empty database
+        run: npx prisma migrate deploy
 
-      - name: Build Next.js production bundle
+      - name: Schema and migrations agree (no drift)
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+
+      - name: PostgreSQL integration tests
+        run: npx vitest run tests/integration/rate-limit.postgres.integration.test.ts
+
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: next build
         run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+  docker:
+    name: Container image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: shipshape:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+      - name: Container refuses to boot without required configuration
+        run: |
+          # Fail-fast env validation is part of the contract: the server must exit 1, not serve 500s.
+          set +e
+          timeout 30 docker run --rm shipshape:ci
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "::error::expected exit code 1 from misconfigured container, got $code"; exit 1
+          fi
+
+      - name: Container boots and passes its liveness probe
+        run: |
+          docker run -d --name app -p 3000:3000 \
+            -e DATABASE_URL=postgresql://nobody:nobody@127.0.0.1:1/none \
+            -e NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY -e CLERK_SECRET_KEY \
+            shipshape:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:3000/api/health && exit 0
+            sleep 1
+          done
+          docker logs app
+          exit 1
