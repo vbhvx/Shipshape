@@ -226,7 +226,7 @@ for (const [cat, data] of Object.entries(categorySummary)) {
 
 // Write JSON Report
 if (outputFormat === 'json' || outputFormat === 'both') {
-  const jsonReportPath = path.resolve(rootDir, 'SHIPSHAPE_E2E_EVALUATION_REPORT.json');
+  const jsonReportPath = path.resolve(rootDir, 'docs/reports/SHIPSHAPE_E2E_EVALUATION_REPORT.json');
   await fs.writeFile(jsonReportPath, JSON.stringify({
     executionTimestamp: new Date().toISOString(),
     nodeVersion: process.version,
@@ -247,7 +247,7 @@ if (outputFormat === 'json' || outputFormat === 'both') {
 
 // Write Markdown Report
 if (outputFormat === 'md' || outputFormat === 'both') {
-  const mdReportPath = path.resolve(rootDir, 'SHIPSHAPE_E2E_EVALUATION_REPORT.md');
+  const mdReportPath = path.resolve(rootDir, 'docs/reports/SHIPSHAPE_E2E_EVALUATION_REPORT.md');
   const markdown = `# Shipshape Phase 4 — E2E Generation & Evaluation Report
 
 **Execution Timestamp:** ${new Date().toISOString()}  

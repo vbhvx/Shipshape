@@ -801,7 +801,7 @@ async function main() {
     console.log(`- [${r.scenarioId} r${r.repetition}] Gen:${d.geminiGenerationSuccess ? '✅' : '❌'} | Build:${d.projectCompilationSuccess ? '✅' : '❌'} | Server:${d.previewStartupSuccess ? '✅' : '❌'} | Browser:${d.browserVerificationSuccess ? '✅' : '❌'} | Mod:${d.modificationSuccess === null ? 'N/A' : (d.modificationSuccess ? '✅' : '❌')} | Repair:${d.repairConvergence === null ? 'N/A' : (d.repairConvergence ? '✅' : '❌')} => Overall:${r.success ? '✅ PASSED' : '❌ ' + (r.errorCode || 'FAILED')}`);
   }
 
-  const rootDir = path.resolve(process.cwd());
+  const rootDir = path.resolve(process.cwd(), 'docs/reports');
   const reportPrefix = isPilotMode ? 'SHIPSHAPE_PHASE_4_7_PILOT_REPORT' : 'SHIPSHAPE_PHASE_4_7_LIVE_GEMINI_REPORT';
   const jsonReportPath = path.resolve(rootDir, `${reportPrefix}.json`);
   const mdReportPath = path.resolve(rootDir, `${reportPrefix}.md`);
@@ -863,7 +863,7 @@ async function writePreflightFailureReport(
   accountant: ExperimentRequestAccountant,
   isPilotMode = false
 ): Promise<void> {
-  const rootDir = path.resolve(process.cwd());
+  const rootDir = path.resolve(process.cwd(), 'docs/reports');
   const reportPrefix = isPilotMode ? 'SHIPSHAPE_PHASE_4_7_PILOT_REPORT' : 'SHIPSHAPE_PHASE_4_7_LIVE_GEMINI_REPORT';
   const jsonPath = path.resolve(rootDir, `${reportPrefix}.json`);
   const mdPath = path.resolve(rootDir, `${reportPrefix}.md`);

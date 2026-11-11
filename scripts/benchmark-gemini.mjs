@@ -289,7 +289,7 @@ async function runBenchmark() {
   console.table(summaryByModel);
 
   // Generate Markdown Report
-  const reportPath = path.resolve(process.cwd(), 'SHIPSHAPE_GEMINI_BENCHMARK_REPORT.md');
+  const reportPath = path.resolve(process.cwd(), 'docs/reports/SHIPSHAPE_GEMINI_BENCHMARK_REPORT.md');
   const markdownContent = `# Shipshape — Gemini Model Evaluation Benchmark Report
 **Execution Date:** ${new Date().toISOString()}
 **Environment:** Node ${process.version} on macOS

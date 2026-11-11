@@ -750,13 +750,13 @@ async function runFixtureBenchmark(): Promise<void> {
   };
 
   // Write JSON report
-  const jsonPath = path.resolve(process.cwd(), 'SHIPSHAPE_PHASE_4_5_REPLAY_REPORT.json');
+  const jsonPath = path.resolve(process.cwd(), 'docs/reports/SHIPSHAPE_PHASE_4_5_REPLAY_REPORT.json');
   await fs.writeFile(jsonPath, JSON.stringify(suiteReport, null, 2), 'utf-8');
   console.log(`\n📄 Wrote JSON report to ${jsonPath}`);
 
   // Write Markdown report
   const mdReport = generateMarkdownReport(suiteReport);
-  const mdPath = path.resolve(process.cwd(), 'SHIPSHAPE_PHASE_4_5_REPLAY_REPORT.md');
+  const mdPath = path.resolve(process.cwd(), 'docs/reports/SHIPSHAPE_PHASE_4_5_REPLAY_REPORT.md');
   await fs.writeFile(mdPath, mdReport, 'utf-8');
   console.log(`📄 Wrote Markdown report to ${mdPath}\n`);
 
