@@ -48,3 +48,7 @@ next-env.d.ts
 # scratch and backup files
 *.save
 *.bak
+
+# design skill (restored from skills-lock.json via `npx skills experimental_install`) and its scratch output
+.claude/skills/design-taste-frontend/
+.taste-skill/
