@@ -1,134 +1,83 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ProjectOrchestrator } from '@/server/jobs/orchestrator';
+import { assertNoActiveRun } from '@/server/jobs/run-lifecycle';
 import { ModifyRequestSchema, GenerationRun } from '@/types';
 import { isGeminiConfigured, PRIMARY_MODEL } from '@/modules/ai/gemini-provider';
-import {
-  requireAuth,
-  AuthSessionError,
-  getOwnedProject,
-} from '@/lib/auth/session';
+import { requireAuth, requireOwnedProject, requireProjectVersion } from '@/lib/auth/session';
+import { apiRoute, readJsonBody } from '@/lib/http/handler';
+import { validationFailed } from '@/lib/http/errors';
+import { enforceRateLimit, RateLimits } from '@/lib/http/rate-limit';
+import { newId } from '@/lib/ids';
 
 // See generate/route.ts: the current in-process workflow must complete before
 // returning so it cannot be stranded by a serverless post-response shutdown.
 export const maxDuration = 60;
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const user = await requireAuth();
-    const { projectId } = await params;
+export const POST = apiRoute<{ projectId: string }>('projects.modify', async (req, { params, log }) => {
+  const user = await requireAuth();
+  const { projectId } = await params;
+  const project = await requireOwnedProject(projectId, user.id);
 
-    const project = await getOwnedProject(projectId, user.id);
-
-    if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Project not found' },
-        { status: 404 }
-      );
-    }
-
-    const body = await req.json();
-    const parsed = ModifyRequestSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid modification instruction',
-          details: parsed.error.format(),
-        },
-        { status: 400 }
-      );
-    }
-
-    const baseVersionId =
-      parsed.data.baseVersionId || project.activeVersionId;
-
-    const activeRun = await db.getLatestGenerationRun(projectId);
-    if (activeRun && ['queued', 'planning', 'generating', 'validating', 'building', 'repairing', 'starting', 'preview_ready'].includes(activeRun.status)) {
-      const isStale = Date.now() - new Date(activeRun.startedAt).getTime() > 120_000;
-      if (isStale) {
-        await db.updateGenerationRun(activeRun.id, {
-          status: 'failed',
-          finishedAt: new Date().toISOString(),
-          errorCode: 'RUN_TIMEOUT',
-          errorMessage: 'Previous generation timed out after 2 minutes',
-        });
-      } else {
-        return NextResponse.json(
-          { success: false, error: 'A generation is already in progress for this project', runId: activeRun.id },
-          { status: 409 }
-        );
-      }
-    }
-
-    if (baseVersionId) {
-      const baseVersion = await db.getVersion(baseVersionId);
-
-      if (!baseVersion || baseVersion.projectId !== projectId) {
-        return NextResponse.json(
-          { success: false, error: 'Base version not found' },
-          { status: 404 }
-        );
-      }
-    }
-
-    const runId = `run_mod_${Date.now()}_${Math.random()
-      .toString(36)
-      .substring(2, 7)}`;
-
-    const chosenProvider = isGeminiConfigured() ? 'gemini' : 'deterministic';
-    const chosenIdentifier = chosenProvider === 'gemini' ? PRIMARY_MODEL : 'deterministic-engine-v1';
-
-    const newRun: GenerationRun = {
-      id: runId,
-      projectId,
-      baseVersionId,
-      runType: 'modification',
-      status: 'queued',
-      modelProvider: chosenProvider,
-      modelIdentifier: chosenIdentifier,
-      attemptCount: 1,
-      prompt: parsed.data.instruction,
-      startedAt: new Date().toISOString(),
-    };
-
-    await db.saveGenerationRun(newRun);
-    await db.updateProject(projectId, { status: 'generating' });
-
-    const result = await ProjectOrchestrator.runModification(
-      runId,
-      projectId,
-      parsed.data.instruction,
-      baseVersionId
-    );
-    const run = await db.getGenerationRun(runId);
-
-    return NextResponse.json({
-      success: true,
-      runId,
-      run,
-      status: run?.status || (result.success ? 'completed' : 'failed'),
-      message: result.success
-        ? 'Modification completed successfully'
-        : 'Modification failed; inspect the run diagnostics for details',
-    });
-  } catch (err: unknown) {
-    if (err instanceof AuthSessionError) {
-      return NextResponse.json(
-        { success: false, error: err.message },
-        { status: err.status }
-      );
-    }
-
-    console.error('Failed to start project modification:', err);
-
-    return NextResponse.json(
-      { success: false, error: 'Failed to start project modification' },
-      { status: 500 }
-    );
+  const parsed = ModifyRequestSchema.safeParse(await readJsonBody(req));
+  if (!parsed.success) {
+    throw validationFailed('Invalid modification instruction', parsed.error.format());
   }
-}
+
+  const baseVersionId = parsed.data.baseVersionId || project.activeVersionId;
+
+  await assertNoActiveRun(projectId);
+
+  if (baseVersionId) {
+    await requireProjectVersion(projectId, baseVersionId, 'Base version');
+  }
+
+  await enforceRateLimit(RateLimits.generation, user.id);
+
+  const runId = newId('run_mod');
+  const chosenProvider = isGeminiConfigured() ? 'gemini' : 'deterministic';
+  const chosenIdentifier = chosenProvider === 'gemini' ? PRIMARY_MODEL : 'deterministic-engine-v1';
+
+  const newRun: GenerationRun = {
+    id: runId,
+    projectId,
+    baseVersionId,
+    runType: 'modification',
+    status: 'queued',
+    modelProvider: chosenProvider,
+    modelIdentifier: chosenIdentifier,
+    attemptCount: 1,
+    prompt: parsed.data.instruction,
+    startedAt: new Date().toISOString(),
+  };
+
+  await db.saveGenerationRun(newRun);
+  await db.updateProject(projectId, { status: 'generating' });
+  await db.recordAudit('modification_started', projectId, user.id, { runId, baseVersionId });
+
+  const startedAt = performance.now();
+  const result = await ProjectOrchestrator.runModification(
+    runId,
+    projectId,
+    parsed.data.instruction,
+    baseVersionId
+  );
+  const run = await db.getGenerationRun(runId);
+
+  log.info('modification.finished', {
+    runId,
+    projectId,
+    status: run?.status,
+    success: result.success,
+    durationMs: Math.round(performance.now() - startedAt),
+  });
+
+  return Response.json({
+    success: true,
+    runId,
+    run,
+    status: run?.status || (result.success ? 'completed' : 'failed'),
+    message: result.success
+      ? 'Modification completed successfully'
+      : 'Modification failed; inspect the run diagnostics for details',
+  });
+}, { fallbackError: 'Failed to start project modification' });
