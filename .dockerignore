@@ -1,9 +1,24 @@
 node_modules
 .next
 .git
+.github
 .sandboxes
 .shipshape-data
 dist
 out
 coverage
+*.log
 
+# Never send local secrets into the build context.
+.env*
+!.env.example
+
+# Not needed to build or run the app.
+docs
+scripts
+# tests/benchmark is imported by src/modules/verification, so only exclude suites.
+tests/unit
+tests/integration
+.agents
+*.md
+!README.md
