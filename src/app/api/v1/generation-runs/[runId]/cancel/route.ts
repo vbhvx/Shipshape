@@ -1,88 +1,42 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ProjectOrchestrator } from '@/server/jobs/orchestrator';
-import {
-  requireAuth,
-  AuthSessionError,
-  getOwnedProject,
-} from '@/lib/auth/session';
+import { isTerminal } from '@/server/jobs/run-lifecycle';
+import { requireAuth, requireOwnedRun } from '@/lib/auth/session';
+import { apiRoute } from '@/lib/http/handler';
+import { conflict } from '@/lib/http/errors';
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ runId: string }> }
-) {
-  try {
-    const user = await requireAuth();
-    const { runId } = await params;
+export const POST = apiRoute<{ runId: string }>('runs.cancel', async (_req, { params, log }) => {
+  const user = await requireAuth();
+  const { runId } = await params;
+  const run = await requireOwnedRun(runId, user.id);
 
-    const run = await db.getGenerationRun(runId);
-    if (!run) {
-      return NextResponse.json(
-        { success: false, error: 'Generation run not found' },
-        { status: 404 }
-      );
-    }
+  if (isTerminal(run.status)) {
+    throw conflict(`Cannot cancel run that is already in terminal state '${run.status}'`);
+  }
 
-    const project = await getOwnedProject(run.projectId, user.id);
-    if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Generation run not found' },
-        { status: 404 }
-      );
-    }
+  // Durable cancellation: the orchestrator on whichever instance owns the run observes this row.
+  const updatedRun = await db.updateGenerationRun(runId, {
+    status: 'cancelled',
+    finishedAt: new Date().toISOString(),
+  });
 
-    if (['completed', 'failed', 'cancelled'].includes(run.status)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Cannot cancel run that is already in terminal state '${run.status}'`,
-        },
-        { status: 409 }
-      );
-    }
-
-    // Attempt durable cancellation in database
-    const updatedRun = await db.updateGenerationRun(runId, {
-      status: 'cancelled',
-      finishedAt: new Date().toISOString(),
-    });
-
-    if (!updatedRun || updatedRun.status !== 'cancelled') {
-      const currentStatus = updatedRun?.status || 'unknown';
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Cannot cancel run: run has already reached terminal state '${currentStatus}'`,
-        },
-        { status: 409 }
-      );
-    }
-
-    // Also notify in-memory orchestrator if running in the same process
-    ProjectOrchestrator.cancelRun(runId);
-
-    // Only record cancellation event if durable cancellation actually succeeded
-    await db.addGenerationEvent(runId, {
-      generationRunId: runId,
-      sequenceNumber: 999,
-      eventType: 'error',
-      message: 'Run was cancelled by user',
-    });
-
-    return NextResponse.json({ success: true, message: 'Run successfully cancelled' });
-  } catch (err: unknown) {
-    if (err instanceof AuthSessionError) {
-      return NextResponse.json(
-        { success: false, error: err.message },
-        { status: err.status }
-      );
-    }
-
-    console.error('Failed to cancel generation run:', err);
-
-    return NextResponse.json(
-      { success: false, error: 'Failed to cancel generation run' },
-      { status: 500 }
+  if (!updatedRun || updatedRun.status !== 'cancelled') {
+    throw conflict(
+      `Cannot cancel run: run has already reached terminal state '${updatedRun?.status || 'unknown'}'`
     );
   }
-}
+
+  // Fast path when the run executes in this same process.
+  ProjectOrchestrator.cancelRun(runId);
+
+  await db.addGenerationEvent(runId, {
+    generationRunId: runId,
+    sequenceNumber: 999,
+    eventType: 'error',
+    message: 'Run was cancelled by user',
+  });
+  await db.recordAudit('run_cancelled', run.projectId, user.id, { runId });
+  log.info('run.cancelled', { runId, projectId: run.projectId });
+
+  return Response.json({ success: true, message: 'Run successfully cancelled' });
+}, { fallbackError: 'Failed to cancel generation run' });

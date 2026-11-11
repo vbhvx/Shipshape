@@ -1,77 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import {
-  requireAuth,
-  AuthSessionError,
-  getOwnedProject,
-} from '@/lib/auth/session';
+import { requireAuth, requireOwnedRun } from '@/lib/auth/session';
+import { reapIfStale } from '@/server/jobs/run-lifecycle';
+import { apiRoute } from '@/lib/http/handler';
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ runId: string }> }
-) {
-  try {
-    const user = await requireAuth();
-    const { runId } = await params;
+export const GET = apiRoute<{ runId: string }>('runs.get', async (_req, { params }) => {
+  const user = await requireAuth();
+  const { runId } = await params;
+  const run = await reapIfStale(await requireOwnedRun(runId, user.id));
 
-    let run = await db.getGenerationRun(runId);
-    if (!run) {
-      return NextResponse.json(
-        { success: false, error: 'Generation run not found' },
-        { status: 404 }
-      );
-    }
+  const [events, buildLogs, buildResults] = await Promise.all([
+    db.getGenerationEvents(runId),
+    db.getBuildLogs(runId),
+    db.getBuildResults(runId),
+  ]);
 
-    const isActive = !['completed', 'failed', 'cancelled'].includes(run.status);
-    const isStale = isActive && (Date.now() - new Date(run.startedAt).getTime() > 120_000);
-    if (isStale) {
-      await db.updateGenerationRun(runId, {
-        status: 'failed',
-        finishedAt: new Date().toISOString(),
-        errorCode: 'RUN_TIMEOUT',
-        errorMessage: 'Generation run timed out after 2 minutes',
-      });
-      run = (await db.getGenerationRun(runId)) || {
-        ...run,
-        status: 'failed',
-        finishedAt: new Date().toISOString(),
-        errorCode: 'RUN_TIMEOUT',
-        errorMessage: 'Generation run timed out after 2 minutes',
-      };
-    }
-
-    const project = await getOwnedProject(run.projectId, user.id);
-    if (!project) {
-      return NextResponse.json(
-        { success: false, error: 'Generation run not found' },
-        { status: 404 }
-      );
-    }
-
-    const events = await db.getGenerationEvents(runId);
-    const logs = await db.getBuildLogs(runId);
-    const buildResults = await db.getBuildResults(runId);
-
-    return NextResponse.json({
-      success: true,
-      run,
-      events,
-      buildLogs: logs,
-      buildResults,
-    });
-  } catch (err: unknown) {
-    if (err instanceof AuthSessionError) {
-      return NextResponse.json(
-        { success: false, error: err.message },
-        { status: err.status }
-      );
-    }
-
-    console.error('Failed to retrieve generation run:', err);
-
-    return NextResponse.json(
-      { success: false, error: 'Failed to retrieve generation run' },
-      { status: 500 }
-    );
-  }
-}
+  return Response.json({ success: true, run, events, buildLogs, buildResults });
+}, { fallbackError: 'Failed to retrieve generation run' });
