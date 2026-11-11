@@ -1,0 +1,33 @@
+name: Sandbox E2E
+
+# Full vertical slice: generated app -> Docker sandbox build -> live server ->
+# Playwright browser verification -> repair loop. Too slow for every push, so it
+# runs weekly and on demand. REQUIRE_SANDBOX_E2E makes missing tooling a failure.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      REQUIRE_SANDBOX_E2E: '1'
+      SANDBOX_DOCKER_IMAGE: shipshape-sandbox:node24
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build sandbox image
+        run: docker build -f Dockerfile.sandbox -t "$SANDBOX_DOCKER_IMAGE" .
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Run sandbox integration suites
+        run: npx vitest run tests/integration
