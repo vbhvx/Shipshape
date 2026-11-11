@@ -1,8 +1,22 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { DockerSandboxProvider } from '@/modules/sandbox/docker-sandbox-provider';
 import { SandboxHandle } from '@/modules/sandbox/sandbox-provider';
+import { execFileSync } from 'child_process';
 
-const dockerRunningOnHost = await DockerSandboxProvider.isDockerAvailable();
+// A daemon alone is not enough: CI runners have Docker but not the sandbox image.
+// Run when both are present, and fail loudly when REQUIRE_SANDBOX_E2E=1.
+const sandboxImage = process.env.SANDBOX_DOCKER_IMAGE || 'shipshape-sandbox:node24';
+function sandboxImagePresent(): boolean {
+  try {
+    execFileSync('docker', ['image', 'inspect', sandboxImage], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+const dockerRunningOnHost =
+  process.env.REQUIRE_SANDBOX_E2E === '1' ||
+  ((await DockerSandboxProvider.isDockerAvailable()) && sandboxImagePresent());
 
 describe('DockerSandboxProvider Real Application Execution Acceptance Test', () => {
   let dockerAvailable = dockerRunningOnHost;
@@ -10,7 +24,6 @@ describe('DockerSandboxProvider Real Application Execution Acceptance Test', () 
   let sandboxHandle: SandboxHandle | null = null;
 
   beforeAll(async () => {
-    dockerAvailable = await DockerSandboxProvider.isDockerAvailable();
     if (dockerAvailable) {
       provider = new DockerSandboxProvider();
     }
