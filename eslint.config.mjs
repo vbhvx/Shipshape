@@ -20,6 +20,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     ".sandboxes/**",
     ".shipshape-data/**",
+    // vendored design kit (taste-skill) served as static files for the landing page
+    "public/assets/**",
+    ".claude/**",
+    ".taste-skill/**",
   ]),
 ]);
 
