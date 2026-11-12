@@ -27,6 +27,15 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  // The marketing page is a static document built with its own design kit
+  // (public/landing, public/assets) so its CSS and scripts never touch the app.
+  async rewrites() {
+    return {
+      beforeFiles: [{ source: "/", destination: "/landing/index.html" }],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
