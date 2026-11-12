@@ -19,7 +19,7 @@ const dockerRunningOnHost =
   ((await DockerSandboxProvider.isDockerAvailable()) && sandboxImagePresent());
 
 describe('DockerSandboxProvider Real Application Execution Acceptance Test', () => {
-  let dockerAvailable = dockerRunningOnHost;
+  const dockerAvailable = dockerRunningOnHost;
   let provider: DockerSandboxProvider;
   let sandboxHandle: SandboxHandle | null = null;
 
