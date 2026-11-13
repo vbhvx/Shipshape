@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { db } from '@/lib/db';
+import { logger } from '@/lib/observability/logger';
 import { SandboxSession, BuildCheckResult, GeneratedFile } from '@/types';
 import { validateSafePath } from '@/server/security/safe-paths';
 
@@ -40,7 +41,7 @@ export class SandboxManager {
       // In serverless / read-only environments, ephemeral filesystem writes may fail.
       // We log a warning but do not crash the generation pipeline because the live preview
       // and project export routes query files directly from durable PostgreSQL storage.
-      console.warn(`[SANDBOX] Workspace filesystem write error for ${projectId}:`, err);
+      logger.warn('sandbox.workspace_write_failed', { projectId, err });
     }
 
     return safeProjectDir;

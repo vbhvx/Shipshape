@@ -1,4 +1,5 @@
 import { db } from '@/lib/db';
+import { logger } from '@/lib/observability/logger';
 import { ApplicationPlan, ProjectVersion } from '@/types';
 import { getModelProvider } from '@/modules/ai/model-provider';
 import { SandboxManager } from '@/modules/sandbox/sandbox-manager';
@@ -228,7 +229,7 @@ export class ProjectOrchestrator {
         return { success: false, error: 'Run was cancelled by user' };
       }
 
-      console.error(`Orchestrator error for run ${runId}:`, err);
+      logger.error('run.generation_failed', { runId, projectId, err });
       await db.updateGenerationRun(runId, {
         status: 'failed',
         finishedAt: new Date().toISOString(),
@@ -396,10 +397,11 @@ export class ProjectOrchestrator {
         return { success: false, error: 'Run was cancelled by user' };
       }
 
-      console.error(`Modification error for run ${runId}:`, err);
+      logger.error('run.modification_failed', { runId, projectId, err });
       await db.updateGenerationRun(runId, {
         status: 'failed',
         finishedAt: new Date().toISOString(),
+        errorCode: 'MODIFICATION_ERROR',
         errorMessage: err.message,
       });
       await db.updateProject(projectId, { status: 'error' });
