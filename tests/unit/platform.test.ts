@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { parseServerEnv, EnvValidationError } from '@/lib/env';
 import { redact } from '@/lib/observability/logger';
 import { newId } from '@/lib/ids';
-import { isStale, isTerminal, RUN_STALE_AFTER_MS } from '@/server/jobs/run-lifecycle';
+import { isRunStale as isStale, isTerminalStatus as isTerminal, RUN_STALE_AFTER_MS } from '@/lib/runs/status';
 import { UpdateSpecificationSchema, type GenerationRun } from '@/types';
 
 describe('parseServerEnv', () => {

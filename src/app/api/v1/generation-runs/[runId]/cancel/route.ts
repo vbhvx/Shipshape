@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { ProjectOrchestrator } from '@/server/jobs/orchestrator';
-import { isTerminal } from '@/server/jobs/run-lifecycle';
+import { isTerminalStatus } from '@/lib/runs/status';
 import { requireAuth, requireOwnedRun } from '@/lib/auth/session';
 import { apiRoute } from '@/lib/http/handler';
 import { conflict } from '@/lib/http/errors';
@@ -10,7 +10,7 @@ export const POST = apiRoute<{ runId: string }>('runs.cancel', async (_req, { pa
   const { runId } = await params;
   const run = await requireOwnedRun(runId, user.id);
 
-  if (isTerminal(run.status)) {
+  if (isTerminalStatus(run.status)) {
     throw conflict(`Cannot cancel run that is already in terminal state '${run.status}'`);
   }
 

@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { requireAuth, requireOwnedRun } from '@/lib/auth/session';
-import { isTerminal, reapIfStale } from '@/server/jobs/run-lifecycle';
+import { reapIfStale } from '@/server/jobs/run-lifecycle';
+import { isTerminalStatus } from '@/lib/runs/status';
 import { apiRoute } from '@/lib/http/handler';
 
 const POLL_INTERVAL_MS = 500;
@@ -63,7 +64,7 @@ export const GET = apiRoute<{ runId: string }>('runs.events', async (req, { para
             lastStatus = run.status;
           }
 
-          if (isTerminal(run.status) || Date.now() - startedAt > MAX_STREAM_DURATION_MS) {
+          if (isTerminalStatus(run.status) || Date.now() - startedAt > MAX_STREAM_DURATION_MS) {
             send(`event: done\ndata: ${JSON.stringify({ status: run.status })}\n\n`);
             break;
           }

@@ -1,32 +1,21 @@
 import { db } from '@/lib/db';
 import { conflict } from '@/lib/http/errors';
-import type { GenerationRun, GenerationRunStatus } from '@/types';
+import type { GenerationRun } from '@/types';
+import { isRunStale, isTerminalStatus, RUN_STALE_AFTER_MS } from '@/lib/runs/status';
 
 /**
- * Generation run lifecycle rules shared by the API routes and the SSE stream.
+ * Database-bound run lifecycle operations used by the API routes and the SSE stream.
  *
  * Runs execute inside a request bounded by the route's `maxDuration`. If the
  * instance dies mid-run, nothing marks the run terminal, so any reader that
  * finds an active run older than `RUN_STALE_AFTER_MS` reaps it as timed out.
- * The threshold is deliberately larger than `maxDuration` so a live run is
- * never reaped by a concurrent reader.
+ * The status rules themselves live in `src/lib/runs/status.ts`, shared with
+ * the workspace UI.
  */
-
-export const RUN_STALE_AFTER_MS = 120_000;
-
-const TERMINAL_STATUSES: ReadonlySet<GenerationRunStatus> = new Set(['completed', 'failed', 'cancelled']);
-
-export function isTerminal(status: GenerationRunStatus): boolean {
-  return TERMINAL_STATUSES.has(status);
-}
-
-export function isStale(run: GenerationRun, now = Date.now()): boolean {
-  return !isTerminal(run.status) && now - new Date(run.startedAt).getTime() > RUN_STALE_AFTER_MS;
-}
 
 /** Marks a stale run as failed and returns its current state; non-stale runs are returned unchanged. */
 export async function reapIfStale(run: GenerationRun): Promise<GenerationRun> {
-  if (!isStale(run)) return run;
+  if (!isRunStale(run)) return run;
 
   const timeout = {
     status: 'failed' as const,
@@ -44,7 +33,7 @@ export async function assertNoActiveRun(projectId: string): Promise<void> {
   if (!latest) return;
 
   const current = await reapIfStale(latest);
-  if (!isTerminal(current.status)) {
+  if (!isTerminalStatus(current.status)) {
     throw conflict('A generation is already in progress for this project', { runId: current.id });
   }
 }
