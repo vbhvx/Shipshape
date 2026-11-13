@@ -9,8 +9,15 @@ import VersionDiffPanel from '@/components/workspace/VersionDiffPanel';
 import LivePreviewPanel from '@/components/workspace/LivePreviewPanel';
 import CodeInspectorPanel from '@/components/workspace/CodeInspectorPanel';
 import DiagnosticsPanel from '@/components/workspace/DiagnosticsPanel';
+import TabButton from '@/components/workspace/TabButton';
+import ErrorState from '@/components/ui/ErrorState';
+import { projectsApi, runsApi, type RunDetail } from '@/lib/api/projects';
+import { describeError } from '@/lib/api/client';
+import { isRunStale, isTerminalStatus } from '@/lib/runs/status';
+import { exportFileName } from '@/lib/format';
 import {
   Project,
+  ProjectSpecification,
   ProjectVersion,
   GeneratedFile,
   GenerationRun,
@@ -18,16 +25,10 @@ import {
   BuildLog,
   BuildCheckResult,
 } from '@/types';
-import {
-  MessageSquare,
-  FileText,
-  History,
-  Eye,
-  Code2,
-  Terminal,
-  Loader2,
-  AlertCircle,
-} from 'lucide-react';
+import { MessageSquare, FileText, History, Eye, Code2, Terminal, Loader2 } from 'lucide-react';
+
+/** A run still worth streaming: not finished and not abandoned by a dead instance. */
+const isLiveRun = (run: GenerationRun) => !isTerminalStatus(run.status) && !isRunStale(run);
 
 function WorkspaceContent({
   params,
@@ -45,7 +46,7 @@ function WorkspaceContent({
   const [activeVersionId, setActiveVersionId] = useState<string>('');
   const [files, setFiles] = useState<GeneratedFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<GeneratedFile | null>(null);
-  const [specification, setSpecification] = useState<any>(null);
+  const [specification, setSpecification] = useState<ProjectSpecification | null>(null);
 
   // Active generation/modification run state
   const [activeRun, setActiveRun] = useState<GenerationRun | null>(null);
@@ -64,112 +65,98 @@ function WorkspaceContent({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  /** Applies a run's diagnostics; empty lists from the server never wipe what is shown. */
+  const applyRunDetail = (detail: RunDetail, { includeRun = true } = {}) => {
+    if (includeRun && detail.run) setActiveRun(detail.run);
+    if (detail.events?.length) setEvents(detail.events);
+    if (detail.buildResults) setBuildResults(detail.buildResults);
+    if (detail.buildLogs) setLogs(detail.buildLogs);
+  };
+
+  const showVersionFiles = async (versionId: string) => {
+    const versionFiles = await projectsApi.files(projectId, versionId);
+    setFiles(versionFiles);
+    setSelectedFile(versionFiles[0] || null);
+  };
+
+  /** Re-reads versions, files, project state and the tracked run's diagnostics after a run ends. */
   const reloadVersionsAndFiles = async () => {
     try {
-      const versRes = await fetch(`/api/v1/projects/${projectId}/versions`);
-      const versData = await versRes.json();
-      if (versData.success && versData.versions.length > 0) {
-        setVersions(versData.versions);
-        const latest = versData.versions[0];
-        if (latest) {
-          setActiveVersionId(latest.id);
-          const filesRes = await fetch(`/api/v1/projects/${projectId}/files?versionId=${latest.id}`);
-          const filesData = await filesRes.json();
-          if (filesData.success) {
-            setFiles(filesData.files);
-            setSelectedFile(filesData.files[0] || null);
-          }
-        }
+      const projectVersions = await projectsApi.versions(projectId);
+      if (projectVersions.length > 0) {
+        setVersions(projectVersions);
+        setActiveVersionId(projectVersions[0].id);
+        await showVersionFiles(projectVersions[0].id);
       }
 
-      // Also reload project to get updated status and activeVersionId
-      const projRes = await fetch(`/api/v1/projects/${projectId}`);
-      const projData = await projRes.json();
-      if (projData.success) {
-        setProject(projData.project);
-        if (projData.specification) {
-          setSpecification(projData.specification);
-        }
-        if (projData.activeRun) {
-          setActiveRun(projData.activeRun);
-        }
-      }
+      const detail = await projectsApi.get(projectId);
+      setProject(detail.project);
+      if (detail.specification) setSpecification(detail.specification);
+      if (detail.activeRun) setActiveRun(detail.activeRun);
 
-      // Reload logs
       const runToFetch = activeRun?.id || paramRunId;
       if (runToFetch) {
-        const runRes = await fetch(`/api/v1/generation-runs/${runToFetch}`);
-        const runData = await runRes.json();
-        if (runData.success) {
-          setBuildResults(runData.buildResults || []);
-          setLogs(runData.buildLogs || []);
-        }
+        applyRunDetail(await runsApi.get(runToFetch), { includeRun: false });
       }
     } catch (err) {
-      console.error('Failed to reload workspace state:', err);
+      // A failed refresh keeps the last good state on screen; the next run end retries.
+      console.warn('Workspace refresh failed:', describeError(err));
     }
   };
 
-  // Connect SSE for active run
+  /** Called once a run has reached a terminal state, by whichever channel saw it first. */
+  const finishRun = () => {
+    setIsProcessing(false);
+    void reloadVersionsAndFiles();
+    setPreviewRefreshTrigger((k) => k + 1);
+  };
+
+  // Stream progress for a running generation (SSE), with polling below as the fallback.
   const connectSSE = (runId: string) => {
-    if (activeEventSourceRef.current) {
-      activeEventSourceRef.current.close();
-    }
+    activeEventSourceRef.current?.close();
 
     setIsProcessing(true);
-    const eventSource = new EventSource(`/api/v1/generation-runs/${runId}/events`);
+    const eventSource = new EventSource(runsApi.eventsUrl(runId));
     activeEventSourceRef.current = eventSource;
 
     eventSource.addEventListener('message', (e) => {
       try {
-        const evt = JSON.parse(e.data);
-        setEvents((prev) => {
-          if (prev.some((existing) => existing.id === evt.id)) {
-            return prev;
-          }
-          return [...prev, evt];
-        });
-      } catch (err) {
-        console.error('SSE parse error:', err);
+        const evt = JSON.parse(e.data) as GenerationEvent;
+        setEvents((prev) => (prev.some((existing) => existing.id === evt.id) ? prev : [...prev, evt]));
+      } catch {
+        // A malformed frame is skipped; the polling fallback re-reads the full event list.
       }
     });
 
     eventSource.addEventListener('status', (e) => {
       try {
-        const st = JSON.parse(e.data);
-        setActiveRun((prev) => (prev ? { ...prev, status: st.status } : null));
-        if (['completed', 'failed', 'cancelled'].includes(st.status)) {
-          setIsProcessing(false);
-          reloadVersionsAndFiles();
-          setPreviewRefreshTrigger((k) => k + 1);
-        }
-      } catch {}
+        const { status } = JSON.parse(e.data) as { status: GenerationRun['status'] };
+        setActiveRun((prev) => (prev ? { ...prev, status } : null));
+        if (isTerminalStatus(status)) finishRun();
+      } catch {
+        // As above: polling keeps the status right if a frame cannot be read.
+      }
     });
 
     eventSource.addEventListener('done', () => {
       eventSource.close();
       activeEventSourceRef.current = null;
-      setIsProcessing(false);
-      reloadVersionsAndFiles();
-      setPreviewRefreshTrigger((k) => k + 1);
+      finishRun();
     });
 
     eventSource.addEventListener('error', async () => {
       eventSource.close();
       activeEventSourceRef.current = null;
       try {
-        const res = await fetch(`/api/v1/generation-runs/${runId}`);
-        const data = await res.json();
-        if (data.success && data.run) {
-          setActiveRun(data.run);
-          if (['completed', 'failed', 'cancelled'].includes(data.run.status)) {
-            setIsProcessing(false);
-            reloadVersionsAndFiles();
-            setPreviewRefreshTrigger((k) => k + 1);
-            return;
-          }
+        const detail = await runsApi.get(runId);
+        setActiveRun(detail.run);
+        if (isTerminalStatus(detail.run.status)) {
+          finishRun();
+          return;
         }
-      } catch {}
+      } catch {
+        // The stream and the read both failed; release the lock below so the user can retry.
+      }
       setIsProcessing(false);
     });
   };
@@ -181,15 +168,8 @@ function WorkspaceContent({
 
     try {
       const hasBaseVersion = !!activeVersionId && versions.length > 0;
-      const endpoint = hasBaseVersion
-        ? `/api/v1/projects/${projectId}/modify`
-        : `/api/v1/projects/${projectId}/generate`;
 
-      const payload = hasBaseVersion
-        ? { instruction: text, baseVersionId: activeVersionId }
-        : { prompt: text };
-
-      // Set provisional active run so fallback polling doesn't immediately check old completed run
+      // Provisional run so the polling fallback does not re-read the previous, finished run.
       setActiveRun({
         id: 'pending_' + Date.now(),
         projectId,
@@ -202,64 +182,40 @@ function WorkspaceContent({
         startedAt: new Date().toISOString(),
       });
 
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Failed to process modification');
+      const started = hasBaseVersion
+        ? await projectsApi.modify(projectId, text, activeVersionId)
+        : await projectsApi.generate(projectId, text);
 
-      if (data.run) {
-        setActiveRun(data.run);
-      }
+      if (started.run) setActiveRun(started.run);
 
-      // Fetch newly generated run events and diagnostics immediately
-      if (data.runId) {
+      if (started.runId) {
         try {
-          const runRes = await fetch(`/api/v1/generation-runs/${data.runId}`);
-          const runData = await runRes.json();
-          if (runData.success) {
-            if (runData.events && runData.events.length > 0) {
-              setEvents(runData.events);
-            }
-            if (runData.buildResults) {
-              setBuildResults(runData.buildResults);
-            }
-            if (runData.buildLogs) {
-              setLogs(runData.buildLogs);
-            }
-          }
-        } catch (e) {
-          console.warn('Failed to fetch updated run details:', e);
+          applyRunDetail(await runsApi.get(started.runId), { includeRun: false });
+        } catch (err) {
+          console.warn('Run details could not be loaded:', describeError(err));
         }
       }
 
-      const terminalStatus = data.status || data.run?.status;
-      const isTerminal = ['completed', 'failed', 'cancelled'].includes(terminalStatus);
-
-      if (isTerminal) {
+      if (isTerminalStatus(started.status || started.run?.status || '')) {
         setIsProcessing(false);
         await reloadVersionsAndFiles();
         setPreviewRefreshTrigger((prev) => prev + 1);
       } else {
-        // Stream progress if run is executing asynchronously
-        connectSSE(data.runId);
+        connectSSE(started.runId);
       }
-    } catch (err: any) {
-      alert(`Execution error: ${err.message}`);
+    } catch (err) {
+      alert(`Execution error: ${describeError(err)}`);
       setIsProcessing(false);
       await reloadVersionsAndFiles();
     }
   };
 
-  // Watchdog timer: ensure isProcessing never hangs for more than 60 seconds
+  // Watchdog: a run is bounded server-side, so never hold the UI lock longer than 60s.
   useEffect(() => {
     if (!isProcessing) return;
     const timeout = setTimeout(() => {
-      console.warn('Watchdog timeout: generation processing took longer than 60s, releasing lock');
       setIsProcessing(false);
-      reloadVersionsAndFiles();
+      void reloadVersionsAndFiles();
     }, 60000);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -271,80 +227,40 @@ function WorkspaceContent({
     async function loadWorkspace() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/v1/projects/${projectId}`);
-        const data = await res.json();
-        if (!ignore && data.success) {
-          setProject(data.project);
-          setSpecification(data.specification);
+        const detail = await projectsApi.get(projectId);
+        if (ignore) return;
+        setProject(detail.project);
+        setSpecification(detail.specification);
 
-          // Load versions
-          const versRes = await fetch(`/api/v1/projects/${projectId}/versions`);
-          const versData = await versRes.json();
-          if (versData.success) {
-            setVersions(versData.versions);
-            const activeV = data.project.activeVersionId || versData.versions[0]?.id;
-            setActiveVersionId(activeV);
+        const projectVersions = await projectsApi.versions(projectId);
+        if (ignore) return;
+        setVersions(projectVersions);
+        const activeV = detail.project.activeVersionId || projectVersions[0]?.id;
+        setActiveVersionId(activeV ?? '');
+        if (activeV) await showVersionFiles(activeV);
 
-            // Load files for active version
-            if (activeV) {
-              const filesRes = await fetch(`/api/v1/projects/${projectId}/files?versionId=${activeV}`);
-              const filesData = await filesRes.json();
-              if (filesData.success) {
-                setFiles(filesData.files);
-                setSelectedFile(filesData.files[0] || null);
-              }
+        // Resume a run named in the URL, or the project's latest one.
+        const runIdToTrack = paramRunId || detail.activeRun?.id;
+        if (runIdToTrack) {
+          try {
+            const run = await runsApi.get(runIdToTrack);
+            applyRunDetail(run);
+            if (isLiveRun(run.run)) {
+              setIsProcessing(true);
+              connectSSE(runIdToTrack);
             }
+          } catch (err) {
+            console.warn('Run details could not be loaded:', describeError(err));
           }
-
-          // Check if there is an active run or runId from URL search param
-          const runIdToTrack = paramRunId || data.activeRun?.id;
-          if (runIdToTrack) {
-            try {
-              const runRes = await fetch(`/api/v1/generation-runs/${runIdToTrack}`);
-              const runData = await runRes.json();
-              if (runData.success && runData.run) {
-                setActiveRun(runData.run);
-                if (runData.events && runData.events.length > 0) {
-                  setEvents(runData.events);
-                }
-                if (runData.buildResults) {
-                  setBuildResults(runData.buildResults);
-                }
-                const isRunActive = [
-                  'queued',
-                  'planning',
-                  'generating',
-                  'validating',
-                  'building',
-                  'repairing',
-                  'starting',
-                ].includes(runData.run.status);
-
-                const isStale = isRunActive && (Date.now() - new Date(runData.run.startedAt).getTime() > 90_000);
-
-                if (isRunActive && !isStale) {
-                  setIsProcessing(true);
-                  connectSSE(runIdToTrack);
-                } else if (isStale) {
-                  setIsProcessing(false);
-                }
-              }
-            } catch (runErr) {
-              console.warn('Failed to load initial run details:', runErr);
-            }
-          }
-
-          // Autostart initial generation if navigated directly from hero or applications and no versions exist yet
-          const shouldAutostart = searchParams.get('autostart') === 'true';
-          const hasNoRunsOrVersions = (!runIdToTrack) && (!versData.versions || versData.versions.length === 0);
-          if (shouldAutostart && hasNoRunsOrVersions && data.project?.description) {
-            handleSendMessage(data.project.description);
-          }
-        } else if (!data.success) {
-          setError(data.error || 'Failed to load project');
         }
-      } catch (err: any) {
-        if (!ignore) setError(err.message);
+
+        // Autostart the first generation when arriving from the prompt page with nothing built yet.
+        const shouldAutostart = searchParams.get('autostart') === 'true';
+        if (shouldAutostart && !runIdToTrack && projectVersions.length === 0 && detail.project.description) {
+          void handleSendMessage(detail.project.description);
+        }
+      } catch (err) {
+        if (!ignore) setError(describeError(err, 'Unable to load project workspace.'));
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -357,43 +273,30 @@ function WorkspaceContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, paramRunId]);
 
-  // Cleanup EventSource on unmount
+  // Close the event stream on unmount
   useEffect(() => {
     return () => {
-      if (activeEventSourceRef.current) {
-        activeEventSourceRef.current.close();
-        activeEventSourceRef.current = null;
-      }
+      activeEventSourceRef.current?.close();
+      activeEventSourceRef.current = null;
     };
   }, []);
 
-  // Resilient fallback polling loop while processing
+  // Polling fallback while processing (covers dropped streams and proxies that buffer SSE)
   useEffect(() => {
     if (!isProcessing || !activeRun?.id) return;
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/v1/generation-runs/${activeRun.id}`);
-        const data = await res.json();
-        if (data.success && data.run) {
-          if (data.events && data.events.length > 0) {
-            setEvents(data.events);
-          }
-          setActiveRun(data.run);
-          if (data.buildResults) {
-            setBuildResults(data.buildResults);
-          }
-          if (['completed', 'failed', 'cancelled'].includes(data.run.status)) {
-            setIsProcessing(false);
-            if (activeEventSourceRef.current) {
-              activeEventSourceRef.current.close();
-              activeEventSourceRef.current = null;
-            }
-            reloadVersionsAndFiles();
-          }
+        const detail = await runsApi.get(activeRun.id);
+        applyRunDetail(detail);
+        if (isTerminalStatus(detail.run.status)) {
+          setIsProcessing(false);
+          activeEventSourceRef.current?.close();
+          activeEventSourceRef.current = null;
+          void reloadVersionsAndFiles();
         }
-      } catch (err) {
-        console.warn('Run status poll check error:', err);
+      } catch {
+        // Expected while the provisional run id is pending; the next tick retries.
       }
     }, 1500);
 
@@ -401,74 +304,55 @@ function WorkspaceContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isProcessing, activeRun?.id]);
 
-  // Handle version selection
   const handleSelectVersion = async (versionId: string) => {
     setActiveVersionId(versionId);
     try {
-      const res = await fetch(`/api/v1/projects/${projectId}/files?versionId=${versionId}`);
-      const data = await res.json();
-      if (data.success) {
-        setFiles(data.files);
-        setSelectedFile(data.files[0] || null);
-      }
+      await showVersionFiles(versionId);
     } catch (err) {
-      console.error('Failed to switch version:', err);
+      alert(`Could not open that version: ${describeError(err)}`);
     }
   };
 
-  // Handle version restore
   const handleRestoreVersion = async (targetVersionId: string) => {
     if (!confirm('Restore this snapshot to a new version?')) return;
     try {
-      const res = await fetch(`/api/v1/projects/${projectId}/restore`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ versionId: targetVersionId }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-
+      const restored = await projectsApi.restore(projectId, targetVersionId);
       await reloadVersionsAndFiles();
-      alert(`Restored to new Version ${data.restoredVersion.versionNumber}`);
-    } catch (err: any) {
-      alert(`Restore failed: ${err.message}`);
+      alert(`Restored to new Version ${restored.versionNumber}`);
+    } catch (err) {
+      alert(`Restore failed: ${describeError(err)}`);
     }
   };
 
-  // Handle Export ZIP
   const handleExport = async () => {
     try {
       setIsExporting(true);
-      const res = await fetch(`/api/v1/projects/${projectId}/export?versionId=${activeVersionId}`);
-      if (!res.ok) throw new Error('Export failed');
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${project?.name.toLowerCase().replace(/\s+/g, '-') || 'project'}-export.zip`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err: any) {
-      alert(`Export failed: ${err.message}`);
+      await projectsApi.exportZip(projectId, exportFileName(project?.name ?? 'project'), activeVersionId || undefined);
+    } catch (err) {
+      alert(`Export failed: ${describeError(err)}`);
     } finally {
       setIsExporting(false);
     }
   };
 
-  // Handle Restart Sandbox
   const handleRestartSandbox = async () => {
     try {
       setIsRestarting(true);
-      await fetch(`/api/v1/projects/${projectId}/runtime/start`, { method: 'POST' });
-      // Trigger preview refresh by changing right tab or state
+      await projectsApi.startRuntime(projectId);
       alert('Sandbox runtime successfully restarted.');
-    } catch (err: any) {
-      alert(`Restart failed: ${err.message}`);
+    } catch (err) {
+      alert(`Restart failed: ${describeError(err)}`);
     } finally {
       setIsRestarting(false);
+    }
+  };
+
+  const handleCancelRun = async () => {
+    if (!activeRun) return;
+    try {
+      await runsApi.cancel(activeRun.id);
+    } catch (err) {
+      alert(`Cancel failed: ${describeError(err)}`);
     }
   };
 
@@ -483,16 +367,13 @@ function WorkspaceContent({
 
   if (error || !project) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <AlertCircle className="w-10 h-10 text-zinc-400" />
-        <h2 className="text-lg font-bold text-zinc-100">Project Not Found</h2>
-        <p className="text-xs text-zinc-400 max-w-sm">{error || 'Unable to load project workspace.'}</p>
-        <button
-          onClick={() => router.push('/')}
-          className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-200 transition"
-        >
-          Return to Projects
-        </button>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
+        <ErrorState
+          title="Project Not Found"
+          message={error || 'Unable to load project workspace.'}
+          onRetry={() => router.push('/projects')}
+          retryLabel="Return to Projects"
+        />
       </div>
     );
   }
@@ -515,46 +396,23 @@ function WorkspaceContent({
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel: Chat / Plan / Versions */}
         <div className="w-full md:w-[460px] lg:w-[500px] border-r border-zinc-800 flex flex-col shrink-0 bg-zinc-950">
-          {/* Left Panel Tabs */}
           <div className="h-10 border-b border-zinc-800 bg-zinc-900/60 px-2 flex items-center gap-1 text-xs select-none">
-            <button
-              onClick={() => setLeftTab('chat')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition ${
-                leftTab === 'chat'
-                  ? 'bg-zinc-800 text-white font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
+            <TabButton active={leftTab === 'chat'} onClick={() => setLeftTab('chat')}>
               <MessageSquare className="w-3.5 h-3.5 text-zinc-300" />
               <span>Agent & Chat</span>
               {isProcessing && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />}
-            </button>
-            <button
-              onClick={() => setLeftTab('plan')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition ${
-                leftTab === 'plan'
-                  ? 'bg-zinc-800 text-white font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
+            </TabButton>
+            <TabButton active={leftTab === 'plan'} onClick={() => setLeftTab('plan')}>
               <FileText className="w-3.5 h-3.5 text-zinc-300" />
               <span>Spec & Plan</span>
-            </button>
-            <button
-              onClick={() => setLeftTab('versions')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition ${
-                leftTab === 'versions'
-                  ? 'bg-zinc-800 text-white font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
+            </TabButton>
+            <TabButton active={leftTab === 'versions'} onClick={() => setLeftTab('versions')}>
               <History className="w-3.5 h-3.5 text-zinc-300" />
               <span>History & Diffs</span>
               <span className="text-[10px] font-mono text-zinc-500">({versions.length})</span>
-            </button>
+            </TabButton>
           </div>
 
-          {/* Left Panel Body */}
           <div className="flex-1 overflow-hidden">
             {leftTab === 'chat' && (
               <ChatIterationPanel
@@ -564,11 +422,7 @@ function WorkspaceContent({
                 events={events}
                 prompt={project?.description || specification?.description}
                 projectName={project?.name}
-                onCancelRun={async () => {
-                  if (activeRun) {
-                    await fetch(`/api/v1/generation-runs/${activeRun.id}/cancel`, { method: 'POST' });
-                  }
-                }}
+                onCancelRun={handleCancelRun}
               />
             )}
             {leftTab === 'plan' && <PlanSpecPanel specification={specification} />}
@@ -586,47 +440,24 @@ function WorkspaceContent({
 
         {/* Right Panel: Preview / Code / Diagnostics */}
         <div className="flex-1 flex flex-col overflow-hidden bg-zinc-950">
-          {/* Right Panel Tabs */}
           <div className="h-10 border-b border-zinc-800 bg-zinc-900/60 px-4 flex items-center justify-between text-xs select-none">
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => setRightTab('preview')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition ${
-                  rightTab === 'preview'
-                    ? 'bg-zinc-800 text-white font-semibold'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
+              <TabButton active={rightTab === 'preview'} onClick={() => setRightTab('preview')}>
                 <Eye className="w-3.5 h-3.5 text-zinc-300" />
                 <span>Live Preview</span>
-              </button>
-              <button
-                onClick={() => setRightTab('code')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition ${
-                  rightTab === 'code'
-                    ? 'bg-zinc-800 text-white font-semibold'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
+              </TabButton>
+              <TabButton active={rightTab === 'code'} onClick={() => setRightTab('code')}>
                 <Code2 className="w-3.5 h-3.5 text-zinc-300" />
                 <span>Source Code</span>
                 <span className="text-[10px] font-mono text-zinc-500">({files.length})</span>
-              </button>
-              <button
-                onClick={() => setRightTab('logs')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition ${
-                  rightTab === 'logs'
-                    ? 'bg-zinc-800 text-white font-semibold'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
+              </TabButton>
+              <TabButton active={rightTab === 'logs'} onClick={() => setRightTab('logs')}>
                 <Terminal className="w-3.5 h-3.5 text-zinc-300" />
                 <span>Diagnostics & Logs</span>
-              </button>
+              </TabButton>
             </div>
           </div>
 
-          {/* Right Panel Body */}
           <div className="flex-1 overflow-hidden">
             {rightTab === 'preview' && (
               <LivePreviewPanel
@@ -672,4 +503,3 @@ export default function WorkspacePage(props: { params: Promise<{ projectId: stri
     </Suspense>
   );
 }
-
