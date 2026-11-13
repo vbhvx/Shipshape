@@ -3,6 +3,7 @@ import { restoreVersion } from '@/modules/versioning/diff-engine';
 import { RestoreVersionSchema } from '@/types';
 import { requireAuth, requireOwnedProject, requireProjectVersion } from '@/lib/auth/session';
 import { apiRoute, readJsonBody } from '@/lib/http/handler';
+import { assertNoActiveRun } from '@/server/jobs/run-lifecycle';
 import { validationFailed } from '@/lib/http/errors';
 import { enforceRateLimit, RateLimits } from '@/lib/http/rate-limit';
 
@@ -18,6 +19,8 @@ export const POST = apiRoute<{ projectId: string }>('projects.restore', async (r
   }
 
   await requireProjectVersion(projectId, parsed.data.versionId);
+  // Restoring swaps the active version; doing that under a running generation would race its publish.
+  await assertNoActiveRun(projectId);
 
   const newVersion = await restoreVersion(projectId, parsed.data.versionId, parsed.data.reason);
   await db.recordAudit('version_restored', projectId, user.id, {

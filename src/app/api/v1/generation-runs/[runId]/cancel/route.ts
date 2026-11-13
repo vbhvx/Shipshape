@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { ProjectOrchestrator } from '@/server/jobs/orchestrator';
 import { isTerminalStatus } from '@/lib/runs/status';
+import { settleProjectAfterRun } from '@/server/jobs/run-lifecycle';
 import { requireAuth, requireOwnedRun } from '@/lib/auth/session';
 import { apiRoute } from '@/lib/http/handler';
 import { conflict } from '@/lib/http/errors';
@@ -28,6 +29,8 @@ export const POST = apiRoute<{ runId: string }>('runs.cancel', async (_req, { pa
 
   // Fast path when the run executes in this same process.
   ProjectOrchestrator.cancelRun(runId);
+  // The orchestrator settles the project too, but it may be on another instance or already gone.
+  await settleProjectAfterRun(runId, run.projectId);
 
   await db.addGenerationEvent(runId, {
     generationRunId: runId,

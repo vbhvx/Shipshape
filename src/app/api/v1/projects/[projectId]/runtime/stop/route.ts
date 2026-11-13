@@ -6,9 +6,12 @@ import { apiRoute } from '@/lib/http/handler';
 export const POST = apiRoute<{ projectId: string }>('runtime.stop', async (_req, { params }) => {
   const user = await requireAuth();
   const { projectId } = await params;
-  await requireOwnedProject(projectId, user.id);
+  const project = await requireOwnedProject(projectId, user.id);
 
   const session = await SandboxManager.stopSandbox(projectId);
+  if (project.status === 'running') {
+    await db.updateProject(projectId, { status: 'ready' });
+  }
   await db.recordAudit('runtime_stopped', projectId, user.id);
 
   return Response.json({ success: true, session });

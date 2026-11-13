@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { logger } from '@/lib/observability/logger';
+import { settleProjectAfterRun } from '@/server/jobs/run-lifecycle';
 import { ApplicationPlan, ProjectVersion } from '@/types';
 import { getModelProvider } from '@/modules/ai/model-provider';
 import { SandboxManager } from '@/modules/sandbox/sandbox-manager';
@@ -236,11 +237,13 @@ export class ProjectOrchestrator {
         errorCode: 'ORCHESTRATION_ERROR',
         errorMessage: err.message || 'Unknown orchestration error',
       });
-      await db.updateProject(projectId, { status: 'error' });
       return { success: false, error: err.message };
     } finally {
       clearInterval(cancelWatcher);
       activeControllers.delete(runId);
+      cancelledRuns.delete(runId);
+      // Every exit (published, failed, repairs exhausted, cancelled) leaves the project in the state its run implies.
+      await settleProjectAfterRun(runId, projectId);
     }
   }
 
@@ -404,11 +407,13 @@ export class ProjectOrchestrator {
         errorCode: 'MODIFICATION_ERROR',
         errorMessage: err.message,
       });
-      await db.updateProject(projectId, { status: 'error' });
       return { success: false, error: err.message };
     } finally {
       clearInterval(cancelWatcher);
       activeControllers.delete(runId);
+      cancelledRuns.delete(runId);
+      // Every exit (published, failed, repairs exhausted, cancelled) leaves the project in the state its run implies.
+      await settleProjectAfterRun(runId, projectId);
     }
   }
 }

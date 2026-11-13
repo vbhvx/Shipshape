@@ -3,6 +3,7 @@ import { createPlanFromPrompt } from '@/modules/planning/planning-engine';
 import { PlanRequestSchema } from '@/types';
 import { requireAuth, requireOwnedProject } from '@/lib/auth/session';
 import { apiRoute, readJsonBody } from '@/lib/http/handler';
+import { assertNoActiveRun } from '@/server/jobs/run-lifecycle';
 import { notFound, validationFailed } from '@/lib/http/errors';
 import { enforceRateLimit, RateLimits } from '@/lib/http/rate-limit';
 
@@ -18,6 +19,8 @@ export const POST = apiRoute<Params>('projects.plan.create', async (req, { param
     throw validationFailed('Invalid prompt', parsed.error.format());
   }
 
+  // A new plan moves the project to `planning`, which is not a legal step out of `generating`.
+  await assertNoActiveRun(projectId);
   await enforceRateLimit(RateLimits.planning, user.id);
 
   const existingSpec = await db.getSpecification(projectId);
