@@ -12,15 +12,14 @@ export interface User {
   updatedAt: string;
 }
 
+/** Transitions and meanings: src/lib/runs/status.ts. Archiving is `archivedAt`, not a status. */
 export type ProjectStatus =
   | 'draft'
   | 'planning'
   | 'generating'
   | 'ready'
-  | 'building'
   | 'running'
-  | 'error'
-  | 'archived';
+  | 'error';
 
 export interface Project {
   id: string;
@@ -143,12 +142,12 @@ export interface ProjectVersion {
   files?: GeneratedFile[];
 }
 
+/** Transitions: src/lib/runs/status.ts (RUN_STEPS). */
 export type GenerationRunStatus =
   | 'queued'
   | 'planning'
   | 'generating'
   | 'validating'
-  | 'installing'
   | 'building'
   | 'starting'
   | 'preview_ready'
@@ -206,7 +205,8 @@ export interface SandboxSession {
   projectId: string;
   providerKey: 'isolated_node' | 'mock_cloud';
   externalSandboxId?: string;
-  status: 'created' | 'starting' | 'running' | 'stopped' | 'failed' | 'expired';
+  /** The preview is available (`running`) or was stopped; no process runs behind it. */
+  status: 'running' | 'stopped';
   port?: number;
   hostUrl?: string;
   workspaceDir?: string;
@@ -216,17 +216,6 @@ export interface SandboxSession {
   expiresAt?: string;
   terminatedAt?: string;
   errorCode?: string;
-}
-
-export interface PreviewSession {
-  id: string;
-  projectId: string;
-  sandboxSessionId: string;
-  previewUrl: string;
-  isolationOrigin: string;
-  status: 'active' | 'terminated';
-  createdAt: string;
-  expiresAt?: string;
 }
 
 export interface BuildCheckResult {
@@ -293,7 +282,6 @@ export const CreateProjectSchema = z.object({
 export const UpdateProjectSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().min(1).max(2000).optional(),
-  status: z.enum(['draft', 'planning', 'generating', 'ready', 'building', 'running', 'error', 'archived']).optional(),
   activeVersionId: z.string().optional(),
 }).strict();
 

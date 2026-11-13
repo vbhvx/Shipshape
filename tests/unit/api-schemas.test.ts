@@ -56,16 +56,17 @@ describe('API Request Validation Schemas', () => {
       const res1 = UpdateProjectSchema.safeParse({ name: 'Renamed Project' });
       expect(res1.success).toBe(true);
 
-      const res2 = UpdateProjectSchema.safeParse({ status: 'running' });
-      expect(res2.success).toBe(true);
-
       const res3 = UpdateProjectSchema.safeParse({
         name: 'New Name',
         description: 'New Description',
-        status: 'ready',
         activeVersionId: 'ver_123',
       });
       expect(res3.success).toBe(true);
+    });
+
+    it('rejects status: the lifecycle is driven by runs, restores and the runtime, never set by clients', () => {
+      expect(UpdateProjectSchema.safeParse({ status: 'running' }).success).toBe(false);
+      expect(UpdateProjectSchema.safeParse({ name: 'New Name', status: 'ready' }).success).toBe(false);
     });
 
     it('rejects invalid project status enum', () => {

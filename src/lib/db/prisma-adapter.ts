@@ -1,6 +1,7 @@
 import { prisma } from './prisma';
 import { logger } from '@/lib/observability/logger';
 import type { StorageAdapter } from './index';
+import { illegalProjectPredecessors, runPredecessors, isTerminalStatus, TERMINAL_RUN_STATUSES } from '@/lib/runs/status';
 import {
   User,
   Project,
@@ -140,30 +141,30 @@ export const prismaAdapter = {
 
   async updateProject(id: string, updates: Partial<Project>): Promise<Project | null> {
     try {
-      const p = await prisma.project.update({
-        where: { id },
-        data: {
-          ...(updates.name !== undefined ? { name: updates.name } : {}),
-          ...(updates.description !== undefined ? { description: updates.description } : {}),
-          ...(updates.status !== undefined ? { status: updates.status } : {}),
-          ...(updates.activeVersionId !== undefined ? { activeVersionId: updates.activeVersionId } : {}),
-          ...(updates.archivedAt !== undefined
-            ? { archivedAt: updates.archivedAt ? new Date(updates.archivedAt) : null }
-            : {}),
-        },
+      const data = {
+        ...(updates.name !== undefined ? { name: updates.name } : {}),
+        ...(updates.description !== undefined ? { description: updates.description } : {}),
+        ...(updates.status !== undefined ? { status: updates.status } : {}),
+        ...(updates.activeVersionId !== undefined ? { activeVersionId: updates.activeVersionId } : {}),
+        ...(updates.archivedAt !== undefined
+          ? { archivedAt: updates.archivedAt ? new Date(updates.archivedAt) : null }
+          : {}),
+      };
+
+      // A status change applies atomically only from a legal predecessor (src/lib/runs/status.ts).
+      const { count } = await prisma.project.updateMany({
+        where: updates.status !== undefined ? { id, status: { notIn: illegalProjectPredecessors(updates.status) } } : { id },
+        data,
       });
 
-      return {
-        id: p.id,
-        ownerUserId: p.ownerUserId,
-        name: p.name,
-        description: p.description,
-        status: p.status as ProjectStatus,
-        activeVersionId: p.activeVersionId ?? undefined,
-        createdAt: p.createdAt.toISOString(),
-        updatedAt: p.updatedAt.toISOString(),
-        archivedAt: p.archivedAt?.toISOString(),
-      };
+      if (count === 0) {
+        const current = await this.getProject(id);
+        if (current && updates.status !== undefined) {
+          logger.warn('db.project_transition_rejected', { projectId: id, from: current.status, to: updates.status });
+        }
+        return current && updates.status !== undefined ? current : null;
+      }
+      return this.getProject(id);
     } catch {
       return null;
     }
@@ -448,7 +449,6 @@ export const prismaAdapter = {
 
   async updateGenerationRun(runId: string, updates: Partial<GenerationRun>): Promise<GenerationRun | null> {
     try {
-      const terminalStatuses = ['completed', 'failed', 'cancelled'];
       const dataToUpdate = {
         ...(updates.status !== undefined ? { status: updates.status } : {}),
         ...(updates.resultVersionId !== undefined ? { resultVersionId: updates.resultVersionId } : {}),
@@ -462,22 +462,24 @@ export const prismaAdapter = {
           : {}),
       };
 
-      // Atomic conditional update: strictly reject mutating any run that has already reached a terminal state
+      // Atomic conditional update (src/lib/runs/status.ts): a status change applies only from a
+      // legal predecessor; any other change only while the run is still in progress. A finished
+      // run is never modified, which is what makes cancellation win against a late step write.
       const { count } = await prisma.generationRun.updateMany({
         where: {
           id: runId,
-          status: { notIn: terminalStatuses },
+          status: updates.status !== undefined
+            ? { in: runPredecessors(updates.status) }
+            : { notIn: [...TERMINAL_RUN_STATUSES] },
         },
         data: dataToUpdate,
       });
 
-      if (count === 0) {
-        // Record either does not exist or has already reached a terminal state.
-        // Return existing database state without mutating anything.
-        return this.getGenerationRun(runId);
+      const current = await this.getGenerationRun(runId);
+      if (count === 0 && current && updates.status !== undefined && !isTerminalStatus(current.status)) {
+        logger.warn('db.run_transition_rejected', { runId, from: current.status, to: updates.status });
       }
-
-      return this.getGenerationRun(runId);
+      return current;
     } catch {
       return null;
     }
@@ -490,7 +492,6 @@ export const prismaAdapter = {
     files: GeneratedFile[]
   ): Promise<ProjectVersion | null> {
     try {
-      const terminalStatuses = ['completed', 'failed', 'cancelled'];
       const sourceManifest = JSON.stringify(version.sourceManifest || []);
 
       // Execute all publication mutations inside a single database transaction
@@ -501,7 +502,7 @@ export const prismaAdapter = {
           where: {
             id: runId,
             projectId,
-            status: { notIn: terminalStatuses },
+            status: { notIn: [...TERMINAL_RUN_STATUSES] },
           },
           data: {
             status: 'completed',
@@ -662,7 +663,7 @@ export const prismaAdapter = {
       projectId: s.projectId,
       providerKey: (s.providerKey as any) || 'isolated_node',
       externalSandboxId: s.externalSandboxId ?? undefined,
-      status: (s.status as any) || 'created',
+      status: s.status === 'running' ? 'running' : 'stopped',
       port: s.port ?? undefined,
       hostUrl: s.hostUrl ?? undefined,
       workspaceDir: s.workspaceDir ?? undefined,

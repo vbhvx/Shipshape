@@ -32,7 +32,7 @@ type SortField = 'updated' | 'created' | 'name';
 function getProjectStatusCategory(status: string): 'ready' | 'generating' | 'attention' | 'draft' {
   const s = status.toLowerCase();
   if (s === 'ready' || s === 'running') return 'ready';
-  if (s === 'generating' || s === 'planning' || s === 'building') return 'generating';
+  if (s === 'generating' || s === 'planning') return 'generating';
   if (s === 'error') return 'attention';
   return 'draft';
 }

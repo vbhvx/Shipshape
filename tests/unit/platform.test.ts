@@ -81,7 +81,7 @@ describe('run lifecycle', () => {
   it('classifies terminal statuses', () => {
     expect(isTerminal('completed')).toBe(true);
     expect(isTerminal('cancelled')).toBe(true);
-    expect(isTerminal('installing')).toBe(false);
+    expect(isTerminal('starting')).toBe(false);
   });
 
   it('treats only old, non-terminal runs as stale', () => {

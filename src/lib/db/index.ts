@@ -9,7 +9,6 @@ import {
   GenerationRun,
   GenerationEvent,
   SandboxSession,
-  PreviewSession,
   BuildCheckResult,
   BuildLog,
 } from '@/types';
@@ -23,11 +22,9 @@ interface DatabaseStore {
   generationRuns: Record<string, GenerationRun>;
   generationEvents: Record<string, GenerationEvent[]>;
   sandboxSessions: Record<string, SandboxSession>;
-  previewSessions: Record<string, PreviewSession>;
   buildResults: Record<string, BuildCheckResult[]>;
   buildLogs: Record<string, BuildLog[]>;
   auditEvents: Record<string, any[]>;
-  idempotency: Record<string, any>;
 }
 
 const DATA_DIR = path.join(process.cwd(), '.shipshape-data');
@@ -70,11 +67,9 @@ async function ensureDataStore(): Promise<DatabaseStore> {
       generationRuns: {},
       generationEvents: {},
       sandboxSessions: {},
-      previewSessions: {},
       buildResults: {},
       buildLogs: {},
       auditEvents: {},
-      idempotency: {},
     };
     await saveStore(storeCache);
   }
@@ -97,6 +92,7 @@ async function saveStore(store: DatabaseStore): Promise<void> {
 
 import { prismaAdapter } from './prisma-adapter';
 import { logger } from '@/lib/observability/logger';
+import { canTransitionProject, canTransitionRun, isTerminalStatus } from '@/lib/runs/status';
 
 const jsonAdapter = {
   // Users
@@ -198,6 +194,10 @@ const jsonAdapter = {
     const s = await ensureDataStore();
     const existing = s.projects[id];
     if (!existing) return null;
+    if (updates.status !== undefined && !canTransitionProject(existing.status, updates.status)) {
+      logger.warn('db.project_transition_rejected', { projectId: id, from: existing.status, to: updates.status });
+      return existing;
+    }
     const updated: Project = {
       ...existing,
       ...updates,
@@ -215,7 +215,6 @@ const jsonAdapter = {
       delete s.projects[id];
       delete s.specifications[id];
       delete s.sandboxSessions[id];
-      delete s.previewSessions[id];
     } else {
       s.projects[id].archivedAt = new Date().toISOString();
     }
@@ -312,9 +311,12 @@ const jsonAdapter = {
     const existing = s.generationRuns[runId];
     if (!existing) return null;
 
-    const terminalStatuses = ['completed', 'failed', 'cancelled'];
-    if (terminalStatuses.includes(existing.status)) {
-      // Terminal state protection: reject any mutation to an existing terminal run
+    // A finished run never changes; a status change must be a legal transition (src/lib/runs/status.ts).
+    if (isTerminalStatus(existing.status)) {
+      return existing;
+    }
+    if (updates.status !== undefined && !canTransitionRun(existing.status, updates.status)) {
+      logger.warn('db.run_transition_rejected', { runId, from: existing.status, to: updates.status });
       return existing;
     }
 
@@ -334,8 +336,7 @@ const jsonAdapter = {
     const existingRun = s.generationRuns[runId];
     if (!existingRun) return null;
 
-    const terminalStatuses = ['completed', 'failed', 'cancelled'];
-    if (terminalStatuses.includes(existingRun.status)) {
+    if (isTerminalStatus(existingRun.status)) {
       // If the run has been cancelled or has already terminated, abort publication atomically
       return null;
     }

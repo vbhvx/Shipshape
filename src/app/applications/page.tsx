@@ -485,7 +485,7 @@ export default function ApplicationsChatPage() {
               {projects.slice(0, 3).map((p) => {
                 const s = p.status.toLowerCase();
                 const isReady = s === 'ready' || s === 'running';
-                const isGenerating = s === 'generating' || s === 'planning' || s === 'building';
+                const isGenerating = s === 'generating' || s === 'planning';
                 const isError = s === 'error';
 
                 return (
