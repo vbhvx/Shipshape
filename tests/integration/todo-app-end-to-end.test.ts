@@ -2,6 +2,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import { db } from '../../src/lib/db';
 import { createPlanFromPrompt } from '../../src/modules/planning/planning-engine';
 import { ProjectOrchestrator } from '../../src/server/jobs/orchestrator';
+import { getDefaultTestUser } from '../helpers/db';
 
 describe('P0 End-to-End Build Test: Todo App Generation & Modification Pipeline', () => {
   const projectId = `proj_todo_p0_${Date.now()}`;
@@ -16,7 +17,7 @@ describe('P0 End-to-End Build Test: Todo App Generation & Modification Pipeline'
   });
 
   it('1. Initializes project record and plans application specification', async () => {
-    const user = await db.getDefaultUser();
+    const user = await getDefaultTestUser();
     await db.createProject({
       id: projectId,
       ownerUserId: user.id,

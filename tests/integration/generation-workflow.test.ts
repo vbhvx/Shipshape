@@ -6,6 +6,7 @@ import { SandboxManager } from '../../src/modules/sandbox/sandbox-manager';
 import { computeVersionDiff, restoreVersion } from '../../src/modules/versioning/diff-engine';
 import { exportProjectArchive } from '../../src/modules/export/export-service';
 import { ProjectVersion } from '../../src/types';
+import { getDefaultTestUser } from '../helpers/db';
 
 describe('End-to-End Generation, Execution, Modification & Export Lifecycle', () => {
   const projectId = `proj_integration_${Date.now()}`;
@@ -16,7 +17,7 @@ describe('End-to-End Generation, Execution, Modification & Export Lifecycle', ()
   let v2Id: string;
 
   it('1. Interprets natural language requirements into an editable application plan', async () => {
-    const user = await db.getDefaultUser();
+    const user = await getDefaultTestUser();
     await db.createProject({
       id: projectId,
       ownerUserId: user.id,

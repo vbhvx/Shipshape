@@ -11,13 +11,14 @@ import { GenerationRun, ProjectVersion, GeneratedFile } from '@/types';
 import { NextRequest } from 'next/server';
 import path from 'path';
 import os from 'os';
+import { getDefaultTestUser } from '../helpers/db';
 
 vi.mock('@/lib/auth/session', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/auth/session')>();
   return {
     ...actual,
     requireAuth: vi.fn().mockImplementation(async () => {
-      return db.getDefaultUser();
+      return getDefaultTestUser();
     }),
     getOwnedProject: vi.fn().mockImplementation(async (projectId: string) => {
       return db.getProject(projectId);
@@ -52,7 +53,7 @@ describe('Generation Lifecycle Hardening & Vercel Compatibility', () => {
 
   beforeEach(async () => {
     // Ensure default test project exists
-    const user = await db.getDefaultUser();
+    const user = await getDefaultTestUser();
     await db.createProject({
       id: testProjectId,
       ownerUserId: user.id,
@@ -656,7 +657,7 @@ describe('Generation Lifecycle Hardening & Vercel Compatibility', () => {
   describe('P0 — Explicit cancellation and in-flight request abort propagation', () => {
     it('aborts in-flight generation when user explicitly cancels the run', async () => {
       const cancelProjectId = `proj_test_cancel_abort_${Date.now()}`;
-      const user = await db.getDefaultUser();
+      const user = await getDefaultTestUser();
       await db.createProject({
         id: cancelProjectId,
         ownerUserId: user.id,

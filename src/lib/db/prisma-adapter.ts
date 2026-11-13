@@ -1,4 +1,6 @@
 import { prisma } from './prisma';
+import { logger } from '@/lib/observability/logger';
+import type { StorageAdapter } from './index';
 import {
   User,
   Project,
@@ -18,37 +20,6 @@ export const prismaAdapter = {
   async getUser(id: string): Promise<User | null> {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) return null;
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      avatarUrl: user.avatarUrl ?? undefined,
-      createdAt: user.createdAt.toISOString(),
-      updatedAt: user.updatedAt.toISOString(),
-    };
-  },
-
-  async getDefaultUser(): Promise<User> {
-    let user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { id: 'usr_default_builder' },
-          { email: 'builder@shipshape.ai' },
-        ],
-      },
-    });
-
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          id: 'usr_default_builder',
-          email: 'builder@shipshape.ai',
-          name: 'Alex Rivera',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-        },
-      });
-    }
-
     return {
       id: user.id,
       email: user.email,
@@ -143,8 +114,6 @@ export const prismaAdapter = {
   },
 
   async createProject(project: Omit<Project, 'createdAt' | 'updatedAt'>): Promise<Project> {
-    await this.getDefaultUser();
-
     const p = await prisma.project.create({
       data: {
         id: project.id,
@@ -634,7 +603,7 @@ export const prismaAdapter = {
         };
       });
     } catch (err) {
-      console.error('publishVersionIfActive transaction error:', err);
+      logger.error('db.publish_version_failed', { runId, projectId, err });
       return null;
     }
   },
@@ -818,4 +787,4 @@ export const prismaAdapter = {
       },
     });
   },
-};
+} satisfies StorageAdapter;

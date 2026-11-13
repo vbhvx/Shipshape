@@ -91,11 +91,12 @@ async function saveStore(store: DatabaseStore): Promise<void> {
     const stat = await fs.stat(DATA_FILE);
     lastMtime = stat.mtimeMs;
   } catch (err) {
-    console.error('Failed to persist Shipshape store:', err);
+    logger.error('db.json_store_write_failed', { file: DATA_FILE, err });
   }
 }
 
 import { prismaAdapter } from './prisma-adapter';
+import { logger } from '@/lib/observability/logger';
 
 const jsonAdapter = {
   // Users
@@ -459,7 +460,18 @@ const jsonAdapter = {
   },
 };
 
-function getActiveAdapter() {
+/**
+ * The contract every storage backend implements. Derived from the JSON adapter
+ * (the reference implementation) minus `getDefaultUser`, a local-store helper
+ * for tests and demos that must never exist against a real database. The
+ * Prisma adapter is checked against it with `satisfies`, so the two backends
+ * cannot drift apart unnoticed.
+ */
+export type StorageAdapter = Omit<typeof jsonAdapter, 'getDefaultUser'>;
+
+type Db = StorageAdapter & Partial<Pick<typeof jsonAdapter, 'getDefaultUser'>>;
+
+function getActiveAdapter(): Db {
   if (process.env.DATABASE_URL) {
     return prismaAdapter;
   }
@@ -471,7 +483,7 @@ function getActiveAdapter() {
   return jsonAdapter;
 }
 
-export const db: typeof jsonAdapter = new Proxy({} as typeof jsonAdapter, {
+export const db: Db = new Proxy({} as Db, {
   get(_target, prop) {
     const adapter = getActiveAdapter();
     const value = (adapter as any)[prop];

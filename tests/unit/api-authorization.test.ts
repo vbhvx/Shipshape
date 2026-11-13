@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { getOwnedProject } from '@/lib/auth/session';
 import { db } from '@/lib/db';
+import { getDefaultTestUser } from '../helpers/db';
 
 describe('API Authorization & Multi-tenant Isolation', () => {
   beforeEach(async () => {
     // Ensure default user exists
-    await db.getDefaultUser();
+    await getDefaultTestUser();
   });
 
   describe('getOwnedProject isolation check', () => {
@@ -84,7 +85,7 @@ describe('API Authorization & Multi-tenant Isolation', () => {
       expect(retrieved?.id).toBe(newUser.id);
       expect(retrieved?.id).not.toBe('usr_default_builder');
 
-      const defaultUser = await db.getDefaultUser();
+      const defaultUser = await getDefaultTestUser();
       expect(defaultUser.id).toBe('usr_default_builder');
       expect(defaultUser.id).not.toBe(newUser.id);
     });
