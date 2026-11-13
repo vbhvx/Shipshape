@@ -4,7 +4,10 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Show, UserButton, useAuth } from '@clerk/nextjs';
-import { Project } from '@/types';
+import { projectsApi } from '@/lib/api/projects';
+import { ApiClientError, describeError } from '@/lib/api/client';
+import { useProjectList } from '@/hooks/useProjectList';
+import ErrorState from '@/components/ui/ErrorState';
 import { deriveProjectName } from '@/lib/project-utils';
 import {
   Sparkles,
@@ -33,9 +36,7 @@ export default function ApplicationsChatPage() {
   const [projectName, setProjectName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loadingProjects, setLoadingProjects] = useState(true);
-  const [exportingId, setExportingId] = useState<string | null>(null);
+  const { projects, status: projectsStatus, error: projectsError, reload: reloadProjects, remove, exportZip, exportingId } = useProjectList();
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Conversational message history
@@ -75,31 +76,20 @@ export default function ApplicationsChatPage() {
     ]);
 
     try {
-      // 1. Create Project
-      const res = await fetch('/api/v1/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: finalName, description: promptText.trim() }),
-      });
-      const json = await res.json();
-
-      if (!json.success) {
-        if (res.status === 401 || json.error?.toLowerCase().includes('auth')) {
-          sessionStorage.setItem('shipshape_pending_prompt', promptText.trim());
-          router.push('/sign-in?redirect_url=' + encodeURIComponent('/applications?autostart=true'));
-          return;
-        }
-        throw new Error(json.error || 'Failed to create project');
-      }
-
-      const projectId = json.project.id;
+      const created = await projectsApi.create({ name: finalName, description: promptText.trim() });
+      const projectId = created.id;
       sessionStorage.removeItem('shipshape_pending_prompt');
 
       // Navigate immediately into the workspace with autostart
       router.push(`/workspace/${projectId}?autostart=true`);
-    } catch (err: any) {
-      console.error('Error during generation:', err);
-      setError(err.message || 'An error occurred while creating the project.');
+    } catch (err) {
+      if (err instanceof ApiClientError && err.isUnauthenticated) {
+        // Keep the prompt across the sign-in round trip, then start automatically.
+        sessionStorage.setItem('shipshape_pending_prompt', promptText.trim());
+        router.push('/sign-in?redirect_url=' + encodeURIComponent('/applications?autostart=true'));
+        return;
+      }
+      setError(describeError(err, 'An error occurred while creating the project.'));
       setIsSubmitting(false);
     }
   };
@@ -151,25 +141,6 @@ export default function ApplicationsChatPage() {
     },
   ];
 
-  const loadProjects = async () => {
-    try {
-      setLoadingProjects(true);
-      const res = await fetch('/api/v1/projects');
-      const data = await res.json();
-      if (data.success) {
-        setProjects(data.projects);
-      }
-    } catch (err) {
-      console.error('Failed to load projects:', err);
-    } finally {
-      setLoadingProjects(false);
-    }
-  };
-
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
   const handleSelectStarter = (starter: (typeof quickStarters)[0]) => {
     setProjectName(starter.name);
     setPrompt(starter.prompt);
@@ -195,38 +166,20 @@ export default function ApplicationsChatPage() {
 
   const confirmDeleteProject = async (id: string) => {
     try {
-      const res = await fetch(`/api/v1/projects/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        setProjects((prev) => prev.filter((p) => p.id !== id));
-        setDeleteConfirmId(null);
-      }
+      await remove(id);
+      setDeleteConfirmId(null);
     } catch (err) {
-      console.error('Failed to delete project:', err);
+      alert(describeError(err, 'Failed to delete project'));
     }
   };
 
-  const handleExportZip = async (id: string, name: string, e: React.MouseEvent) => {
+  const handleExportZip = async (project: (typeof projects)[number], e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     try {
-      setExportingId(id);
-      const res = await fetch(`/api/v1/projects/${id}/export`);
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-source.zip`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      await exportZip(project);
     } catch (err) {
-      console.error('Failed to download source:', err);
-      alert('Failed to download project source code');
-    } finally {
-      setExportingId(null);
+      alert(describeError(err, 'Failed to download project source code'));
     }
   };
 
@@ -509,7 +462,16 @@ export default function ApplicationsChatPage() {
             </Link>
           </div>
 
-          {loadingProjects ? (
+          {projectsStatus === 'signed-out' ? (
+          <ErrorState
+            title="Sign in to see your projects"
+            message="Your projects are saved to your account."
+            onRetry={() => router.push('/sign-in?redirect_url=' + encodeURIComponent('/applications'))}
+            retryLabel="Sign in"
+          />
+        ) : projectsStatus === 'error' ? (
+            <ErrorState title="Projects could not load" message={projectsError ?? 'Please try again.'} onRetry={reloadProjects} />
+          ) : projectsStatus === 'loading' ? (
             <div className="p-8 text-center text-zinc-500 space-y-2">
               <Loader2 className="w-5 h-5 animate-spin mx-auto text-emerald-400" />
               <div className="text-xs font-mono">Loading active projects...</div>
@@ -576,7 +538,7 @@ export default function ApplicationsChatPage() {
                     <div className="pt-3 mt-3 border-t border-zinc-800/70 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1 text-zinc-400">
                         <button
-                          onClick={(e) => handleExportZip(p.id, p.name, e)}
+                          onClick={(e) => handleExportZip(p, e)}
                           disabled={exportingId === p.id}
                           title="Download Source Code (.zip)"
                           className="p-1 rounded-lg hover:bg-zinc-800 hover:text-zinc-200 transition"

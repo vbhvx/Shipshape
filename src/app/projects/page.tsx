@@ -1,9 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Show, UserButton } from '@clerk/nextjs';
 import { Project } from '@/types';
+import { projectsApi } from '@/lib/api/projects';
+import { describeError } from '@/lib/api/client';
+import { formatRelativeTime } from '@/lib/format';
+import { useProjectList } from '@/hooks/useProjectList';
+import ErrorState from '@/components/ui/ErrorState';
 import {
   Sparkles,
   Search,
@@ -20,18 +26,6 @@ import {
   Plus,
 } from 'lucide-react';
 
-function getRelativeTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (diffInSeconds < 60) return 'Just now';
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
-
 type StatusCategory = 'all' | 'ready' | 'generating' | 'attention' | 'draft';
 type SortField = 'updated' | 'created' | 'name';
 
@@ -44,14 +38,13 @@ function getProjectStatusCategory(status: string): 'ready' | 'generating' | 'att
 }
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { projects, setProjects, status, error: loadError, reload, remove, exportZip, exportingId } = useProjectList();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusCategory>('all');
   const [sortBy, setSortBy] = useState<SortField>('updated');
 
   // Action states
-  const [exportingId, setExportingId] = useState<string | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<{ id: string; name: string } | null>(null);
@@ -59,52 +52,19 @@ export default function ProjectsPage() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [actionSuccessNotice, setActionSuccessNotice] = useState<string | null>(null);
 
-  const loadProjects = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch('/api/v1/projects');
-      const data = await res.json();
-      if (data.success) {
-        setProjects(data.projects);
-      }
-    } catch (err) {
-      console.error('Failed to load projects:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
   const triggerNotice = (msg: string) => {
     setActionSuccessNotice(msg);
     setTimeout(() => setActionSuccessNotice(null), 3000);
   };
 
-  const handleExportZip = async (id: string, name: string, e: React.MouseEvent) => {
+  const handleExportZip = async (project: Project, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     try {
-      setExportingId(id);
-      const res = await fetch(`/api/v1/projects/${id}/export`);
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-source.zip`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      triggerNotice(`Exported zip for "${name}"`);
+      await exportZip(project);
+      triggerNotice(`Exported zip for "${project.name}"`);
     } catch (err) {
-      console.error('Failed to download source:', err);
-      alert('Failed to download project source code');
-    } finally {
-      setExportingId(null);
+      alert(describeError(err, 'Failed to download project source code'));
     }
   };
 
@@ -113,19 +73,11 @@ export default function ProjectsPage() {
     e.preventDefault();
     try {
       setDuplicatingId(id);
-      const res = await fetch(`/api/v1/projects/${id}/duplicate`, {
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (data.success && data.project) {
-        setProjects((prev) => [data.project, ...prev]);
-        triggerNotice(`Duplicated "${name}" as "${data.project.name}"`);
-      } else {
-        alert(data.error || 'Failed to duplicate project');
-      }
+      const copy = await projectsApi.duplicate(id);
+      setProjects((prev) => [copy, ...prev]);
+      triggerNotice(`Duplicated "${name}" as "${copy.name}"`);
     } catch (err) {
-      console.error('Failed to duplicate project:', err);
-      alert('Failed to duplicate project');
+      alert(describeError(err, 'Failed to duplicate project'));
     } finally {
       setDuplicatingId(null);
     }
@@ -140,28 +92,15 @@ export default function ProjectsPage() {
 
   const handleSaveRename = async () => {
     if (!editingProject || !editNameValue.trim() || isSavingName) return;
+    const name = editNameValue.trim();
     try {
       setIsSavingName(true);
-      const res = await fetch(`/api/v1/projects/${editingProject.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editNameValue.trim() }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setProjects((prev) =>
-          prev.map((p) =>
-            p.id === editingProject.id ? { ...p, name: editNameValue.trim() } : p
-          )
-        );
-        triggerNotice(`Renamed to "${editNameValue.trim()}"`);
-        setEditingProject(null);
-      } else {
-        alert(data.error || 'Failed to rename project');
-      }
+      const updated = await projectsApi.rename(editingProject.id, name);
+      setProjects((prev) => prev.map((p) => (p.id === updated.id ? { ...p, name: updated.name } : p)));
+      triggerNotice(`Renamed to "${updated.name}"`);
+      setEditingProject(null);
     } catch (err) {
-      console.error('Failed to rename project:', err);
-      alert('Failed to rename project');
+      alert(describeError(err, 'Failed to rename project'));
     } finally {
       setIsSavingName(false);
     }
@@ -169,16 +108,11 @@ export default function ProjectsPage() {
 
   const handleDeleteProject = async (id: string) => {
     try {
-      const res = await fetch(`/api/v1/projects/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        setProjects((prev) => prev.filter((p) => p.id !== id));
-        setDeleteConfirmId(null);
-        triggerNotice('Project deleted successfully');
-      }
+      await remove(id);
+      setDeleteConfirmId(null);
+      triggerNotice('Project deleted successfully');
     } catch (err) {
-      console.error('Failed to delete project:', err);
-      alert('Failed to delete project');
+      alert(describeError(err, 'Failed to delete project'));
     }
   };
 
@@ -339,7 +273,16 @@ export default function ProjectsPage() {
         </div>
 
         {/* Project Cards Grid */}
-        {loading ? (
+        {status === 'signed-out' ? (
+          <ErrorState
+            title="Sign in to see your projects"
+            message="Your projects are saved to your account."
+            onRetry={() => router.push('/sign-in?redirect_url=' + encodeURIComponent('/projects'))}
+            retryLabel="Sign in"
+          />
+        ) : status === 'error' ? (
+          <ErrorState title="Projects could not load" message={loadError ?? 'Please try again.'} onRetry={reload} />
+        ) : status === 'loading' ? (
           <div className="p-16 text-center text-zinc-500 space-y-3">
             <Loader2 className="w-8 h-8 animate-spin mx-auto text-emerald-400" />
             <div className="text-sm font-mono text-zinc-300">Loading projects workspace...</div>
@@ -407,7 +350,7 @@ export default function ProjectsPage() {
                       </div>
 
                       <span className="text-[11px] text-zinc-500 font-mono">
-                        {getRelativeTime(p.updatedAt)}
+                        {formatRelativeTime(p.updatedAt)}
                       </span>
                     </div>
 
@@ -454,7 +397,7 @@ export default function ProjectsPage() {
 
                       {/* Export Zip */}
                       <button
-                        onClick={(e) => handleExportZip(p.id, p.name, e)}
+                        onClick={(e) => handleExportZip(p, e)}
                         disabled={exportingId === p.id}
                         title="Download Source Code (.zip)"
                         className="p-1.5 rounded-lg hover:bg-zinc-800 hover:text-zinc-200 transition cursor-pointer"
