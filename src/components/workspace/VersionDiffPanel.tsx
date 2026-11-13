@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ProjectVersion } from '@/types';
+import { ProjectVersion, VersionDiff } from '@/types';
+import { projectsApi } from '@/lib/api/projects';
+import { describeError } from '@/lib/api/client';
 import { RotateCcw, History } from 'lucide-react';
 
 interface VersionDiffPanelProps {
@@ -10,33 +12,6 @@ interface VersionDiffPanelProps {
   activeVersionId?: string;
   onRestoreVersion: (versionId: string) => void;
   isRestoring?: boolean;
-}
-
-interface FileDiff {
-  path: string;
-  status: 'added' | 'deleted' | 'modified' | 'unchanged';
-  oldContent?: string;
-  newContent?: string;
-  additions: number;
-  deletions: number;
-  hunks?: {
-    oldStart: number;
-    oldLines: number;
-    newStart: number;
-    newLines: number;
-    lines: string[];
-  }[];
-}
-
-interface VersionDiffResponse {
-  fromVersionId?: string;
-  toVersionId: string;
-  files: FileDiff[];
-  summary: {
-    filesChanged: number;
-    additions: number;
-    deletions: number;
-  };
 }
 
 export default function VersionDiffPanel({
@@ -49,33 +24,35 @@ export default function VersionDiffPanel({
   const [selectedVersionId, setSelectedVersionId] = useState<string>(
     activeVersionId || versions[versions.length - 1]?.id || ''
   );
-  const [diff, setDiff] = useState<VersionDiffResponse | null>(null);
+  const [diff, setDiff] = useState<VersionDiff | null>(null);
+  const [diffError, setDiffError] = useState<string | null>(null);
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
 
+  // Loads the diff when the version changes. Choosing a file only changes what is shown,
+  // so it is not a dependency (it used to refetch the whole diff on every click).
   useEffect(() => {
     if (!selectedVersionId) return;
-
-    const fetchDiff = async () => {
-      try {
-        setLoadingDiff(true);
-        const res = await fetch(`/api/v1/projects/${projectId}/versions/${selectedVersionId}/diff`);
-        const data = await res.json();
-        if (data.success) {
-          setDiff(data.diff);
-          if (data.diff.files.length > 0 && !selectedFilePath) {
-            setSelectedFilePath(data.diff.files[0].path);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load version diff:', err);
-      } finally {
-        setLoadingDiff(false);
-      }
+    let ignore = false;
+    setLoadingDiff(true);
+    setDiffError(null);
+    projectsApi
+      .diff(projectId, selectedVersionId)
+      .then((next) => {
+        if (ignore) return;
+        setDiff(next);
+        setSelectedFilePath(next.files[0]?.path ?? null);
+      })
+      .catch((err) => {
+        if (!ignore) setDiffError(describeError(err, 'Could not load this version\'s changes.'));
+      })
+      .finally(() => {
+        if (!ignore) setLoadingDiff(false);
+      });
+    return () => {
+      ignore = true;
     };
-
-    fetchDiff();
-  }, [projectId, selectedVersionId, selectedFilePath]);
+  }, [projectId, selectedVersionId]);
 
   const selectedFileDiff = diff?.files.find((f) => f.path === selectedFilePath);
 
@@ -145,6 +122,8 @@ export default function VersionDiffPanel({
 
           {loadingDiff ? (
             <div className="text-zinc-500 p-2">Computing diff...</div>
+          ) : diffError ? (
+            <div role="alert" className="text-zinc-400 p-2">{diffError}</div>
           ) : !diff || diff.files.length === 0 ? (
             <div className="text-zinc-500 p-2">No file differences.</div>
           ) : (
