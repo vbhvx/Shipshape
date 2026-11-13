@@ -63,7 +63,8 @@ src/lib           ->  nothing product-specific
 - **One client, one error type.** UI code calls `projectsApi.*` and `runsApi.*` (`src/lib/api/projects.ts`). `apiRequest` unwraps the envelope and throws `ApiClientError` for every failure, including network errors (`NETWORK_ERROR`) and non-JSON error pages, so `fetch` never fails silently on a 4xx. `describeError` turns any error into user-facing text, adding the request id for server errors so a report can be matched to its log line.
 - **State lives where it is rendered.** There is no global store, and none is needed: the projects and applications pages share `useProjectList`; the workspace owns its run, versions and files in component state, because nothing outside it reads them. The server is the source of truth. Mutations call the API first and update local state only on success.
 - **Load states are explicit:** `loading`, `ready`, `signed-out` (a 401 is not an error, it is a reason to offer sign-in) and `error` (shown with `ErrorState` and a retry).
-- **Run progress** streams over SSE with a 1.5 s polling fallback; both stop on `isTerminalStatus`, and an abandoned run is detected with the server's own `RUN_STALE_AFTER_MS`.
+- **Run progress** streams over SSE with a 1.5 s polling fallback; both stop on `isTerminalStatus`, and an abandoned run is detected with the server's own `RUN_STALE_AFTER_MS`. A run's end is handled exactly once (`finishRun`, keyed by run id), whichever channel reports it first. While a generate/modify request is open the page holds a provisional run that is never polled or streamed: the server runs the whole job inside that request, so live progress is only visible when resuming a run (`?runId`), until generation moves to a background worker.
+- **The chat reply states the run's real outcome** (published, failed with its reason, cancelled), and says it is still finishing when the UI lock was released before the server reported an end.
 - **Error boundaries.** `src/app/error.tsx` catches rendering errors per route, `global-error.tsx` catches a failing root layout, `not-found.tsx` serves unknown paths. Server errors show only their `digest`, which `instrumentation.ts` logs with the full error.
 
 ## 2c. Conventions
@@ -73,13 +74,32 @@ src/lib           ->  nothing product-specific
 - Errors: route handlers throw `ApiError` helpers (`notFound`, `conflict`, `validationFailed`...); the UI throws and catches `ApiClientError`; server code logs through `logger`, never `console`.
 - IDs: `newId('<prefix>')` from the CSPRNG.
 
-## 3. Generation runs as a state machine
+## 3. The run and project state machines
+
+Both machines are defined once, in `src/lib/runs/status.ts`, and **enforced by the storage adapters**: a status write applies only from a legal predecessor (in Postgres, one atomic conditional `UPDATE ... WHERE status IN/NOT IN (...)`), and a refused write is logged as `db.run_transition_rejected` or `db.project_transition_rejected` instead of silently applied.
+
+**Runs**
 
 ```
-queued → planning → generating → validating → building ─┬─▶ starting → preview_ready → completed
-                                                        └─▶ repairing ─┘
-                any non-terminal state ──▶ failed | cancelled
+full generation: queued → planning → generating → validating → building ─┬─▶ starting → preview_ready ─▶ completed
+modification:    queued → generating → validating → building ─────────────┤  (publishes from here)
+                                                    repairing ◀───────────┘  repairing → validating | building | starting
+any in-progress state ──▶ completed (only through the publish transaction) | failed | cancelled
+completed, failed, cancelled are final: nothing changes them, so a late step write cannot revive a cancelled run.
 ```
+
+**Projects** (archiving is `archivedAt`, set by DELETE; it is not a status, and clients cannot set `status` through PATCH)
+
+| Status | Meaning | Set by |
+|---|---|---|
+| `draft` | no version yet | create; a cancelled first run |
+| `planning` | a plan was written | plan route (409 while a run is active) |
+| `generating` | a run is in progress | generate and modify routes |
+| `running` | the latest run published, or the preview runtime was started | publish transaction; runtime start |
+| `ready` | a version exists and nothing runs | restore (409 while a run is active); runtime stop; a cancelled run on a project with versions |
+| `error` | the latest run failed | a failed run, including exhausted repairs and timeouts |
+
+When a run ends, **however it ends**, `settleProjectAfterRun` moves the project out of `generating` (`projectStatusAfterRun` maps completed → `running`, failed → `error`, cancelled → `ready` or `draft`). The orchestrator calls it on every exit, the cancel route calls it because the orchestrator may be on another instance or gone, and the stale-run reaper calls it after a timeout. It acts only when the run is the project's latest, so an old run can never overwrite the status a newer one owns. Rows holding a status from before these rules (`building`, `archived`) may move to any valid status, so old data can always be repaired.
 
 The hard problems are concurrency problems:
 

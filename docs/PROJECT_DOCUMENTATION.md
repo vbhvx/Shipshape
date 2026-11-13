@@ -328,7 +328,7 @@ Shipshape provides **21 route files (`route.ts`) exposing 27 distinct HTTP metho
 | 1 | `GET` | `/api/v1/projects` | `src/app/api/v1/projects/route.ts` | None | `200 OK` | List caller's active (non-archived) projects. |
 | 2 | `POST` | `/api/v1/projects` | `src/app/api/v1/projects/route.ts` | `CreateProjectSchema` | `201 Created` | Create a new project container. |
 | 3 | `GET` | `/api/v1/projects/:projectId` | `src/app/api/v1/projects/[projectId]/route.ts` | None | `200 OK` | Fetch project details by ID. |
-| 4 | `PATCH` | `/api/v1/projects/:projectId` | `src/app/api/v1/projects/[projectId]/route.ts` | `UpdateProjectSchema` | `200 OK` | Update project name, description, or status. |
+| 4 | `PATCH` | `/api/v1/projects/:projectId` | `src/app/api/v1/projects/[projectId]/route.ts` | `UpdateProjectSchema` | `200 OK` | Update project name, description or active version. `status` is rejected: the lifecycle is driven by runs, restores and the runtime. |
 | 5 | `DELETE` | `/api/v1/projects/:projectId` | `src/app/api/v1/projects/[projectId]/route.ts` | None | `200 OK` | Soft-archive project (`archivedAt = now()`). |
 | 6 | `POST` | `/api/v1/projects/:projectId/duplicate` | `src/app/api/v1/projects/[projectId]/duplicate/route.ts` | None | `201 Created` | Clone project, active specification, version, and files. |
 | 7 | `GET` | `/api/v1/projects/:projectId/specification` | `src/app/api/v1/projects/[projectId]/specification/route.ts` | None | `200 OK` | Retrieve current `ProjectSpecification`. |
@@ -481,16 +481,12 @@ Generation is orchestrated by `ProjectOrchestrator.runFullGeneration()` in `src/
 - `req.signal` is not wired; browser disconnect does not abort execution.
 
 ### 12.2 Lifecycle Status Machine
-The execution lifecycle transitions through the following statuses:
+The run lifecycle is defined in `src/lib/runs/status.ts` (`RUN_STEPS`) and enforced by both storage adapters; `docs/ARCHITECTURE.md` section 3 has the full table, including the project lifecycle.
 
 ```
-[queued] ──▶ [planning] ──▶ [generating] ──▶ [validating] ──▶ [starting] ──▶ [preview_ready] ──▶ [completed]
-                                  │               │
-                                  ▼               ▼ (on syntax error)
-                              [failed]       [repairing] ──▶ (success) ──▶ [validating]
-                                                  │
-                                                  ▼ (max 3 fails)
-                                               [failed]
+[queued] ─▶ [planning] ─▶ [generating] ─▶ [validating] ─▶ [building] ─┬─▶ [starting] ─▶ [preview_ready] ─▶ [completed]
+   └─(modification skips planning)─┘                                 └─▶ [repairing] ─▶ [validating] | [building] | [starting]
+any in-progress state ─▶ [completed] (publish transaction only) | [failed] | [cancelled]; those three are final
 ```
 
 ### 12.3 Execution Outcome Taxonomy
@@ -629,7 +625,7 @@ The Prisma schema (`prisma/schema.prisma`) defines **exactly 16 models**:
 - `ownerUserId` (String, FK -> `users.id`): Project owner.
 - `name` (String): Project title.
 - `description` (String): Project prompt / description.
-- `status` (String, default `"draft"`): `draft`, `planning`, `generating`, `ready`, `building`, `running`, `error`, `archived`.
+- `status` (String, default `"draft"`): `draft`, `planning`, `generating`, `ready`, `running`, `error`. Transitions are enforced by the storage adapters (`src/lib/runs/status.ts`); archiving is `archivedAt`. Older rows may hold `building` or `archived`; they may move to any valid status.
 - `activeVersionId` (String, Optional): Pointer to current active version.
 - `createdAt` / `updatedAt` (DateTime): Timestamps.
 - `archivedAt` (DateTime, Optional): Soft-deletion timestamp.
