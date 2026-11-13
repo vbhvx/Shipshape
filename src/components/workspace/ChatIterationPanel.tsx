@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { isTerminalStatus } from '@/lib/runs/status';
 import { Send, Sparkles, Loader2, Zap, XCircle, User, Bot } from 'lucide-react';
 import { GenerationEvent, GenerationRun } from '@/types';
 
@@ -25,7 +26,9 @@ export default function ChatIterationPanel({
 }: ChatIterationPanelProps) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<
-    { id: string; role: 'user' | 'assistant'; text: string; timestamp: string; isWorking?: boolean }[]
+    // isWorking: the run is in progress. awaitingOutcome: processing stopped (e.g. the watchdog)
+    // before the run reported a final status, so the text is updated again when it does.
+    { id: string; role: 'user' | 'assistant'; text: string; timestamp: string; isWorking?: boolean; awaitingOutcome?: boolean }[]
   >([]);
 
   const quickPrompts = [
@@ -76,24 +79,26 @@ export default function ChatIterationPanel({
     onSendMessage(qText);
   };
 
+  // The assistant's reply reflects how the run really ended, never an assumed success.
   React.useEffect(() => {
-    if (!isProcessing) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.isWorking
-            ? {
-                ...m,
-                isWorking: false,
-                text:
-                  activeRun?.status === 'failed'
-                    ? `Modification failed: ${activeRun.errorMessage || 'Syntax or validation error occurred'}`
-                    : 'Modification synthesized, tested, and published to new version.',
-              }
-            : m
-        )
-      );
-    }
-  }, [isProcessing, activeRun?.status, activeRun?.errorMessage]);
+    if (isProcessing) return;
+    const status = activeRun?.status;
+    const finished = status !== undefined && isTerminalStatus(status);
+    const kind = activeRun?.runType === 'modification' ? 'Modification' : 'Generation';
+    const text = !finished
+      ? 'Still finishing on the server. This message updates when the run ends.'
+      : status === 'completed'
+        ? `${kind} built, checked and published as a new version.`
+        : status === 'cancelled'
+          ? `${kind} cancelled. Nothing was published.`
+          : `${kind} failed: ${activeRun?.errorMessage || 'the build did not pass its checks.'}`;
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.isWorking || m.awaitingOutcome ? { ...m, isWorking: false, awaitingOutcome: !finished, text } : m
+      )
+    );
+  }, [isProcessing, activeRun?.status, activeRun?.errorMessage, activeRun?.runType]);
 
   const progressSteps = [
     { key: 'planning', label: '1. Plan' },
