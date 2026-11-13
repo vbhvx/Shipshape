@@ -13,7 +13,7 @@ import TabButton from '@/components/workspace/TabButton';
 import ErrorState from '@/components/ui/ErrorState';
 import { projectsApi, runsApi, type RunDetail } from '@/lib/api/projects';
 import { describeError } from '@/lib/api/client';
-import { isRunStale, isTerminalStatus } from '@/lib/runs/status';
+import { isRunStale, isTerminalStatus, RUN_STALE_AFTER_MS } from '@/lib/runs/status';
 import { exportFileName } from '@/lib/format';
 import {
   Project,
@@ -30,6 +30,14 @@ import { MessageSquare, FileText, History, Eye, Code2, Terminal, Loader2 } from 
 /** A run still worth streaming: not finished and not abandoned by a dead instance. */
 const isLiveRun = (run: GenerationRun) => !isTerminalStatus(run.status) && !isRunStale(run);
 
+/**
+ * Stands in for a run while its generate/modify request is open. The server runs
+ * the whole job inside that request, so there is no real run id to poll or
+ * stream until it returns; the request itself is the bound.
+ */
+const PROVISIONAL_RUN_PREFIX = 'pending_';
+const isProvisional = (runId?: string) => !runId || runId.startsWith(PROVISIONAL_RUN_PREFIX);
+
 function WorkspaceContent({
   params,
 }: {
@@ -40,6 +48,9 @@ function WorkspaceContent({
   const searchParams = useSearchParams();
   const paramRunId = searchParams.get('runId');
   const activeEventSourceRef = useRef<EventSource | null>(null);
+  // The run whose end has already been handled: the SSE status and done frames, the poll
+  // and the request's own response can each report the same ending.
+  const finishedRunIdRef = useRef<string | null>(null);
 
   const [project, setProject] = useState<Project | null>(null);
   const [versions, setVersions] = useState<ProjectVersion[]>([]);
@@ -104,8 +115,12 @@ function WorkspaceContent({
     }
   };
 
-  /** Called once a run has reached a terminal state, by whichever channel saw it first. */
-  const finishRun = () => {
+  /** Handles a run's end once, whichever channel (stream, poll, response) reports it first. */
+  const finishRun = (runId: string) => {
+    if (finishedRunIdRef.current === runId) return;
+    finishedRunIdRef.current = runId;
+    activeEventSourceRef.current?.close();
+    activeEventSourceRef.current = null;
     setIsProcessing(false);
     void reloadVersionsAndFiles();
     setPreviewRefreshTrigger((k) => k + 1);
@@ -114,6 +129,7 @@ function WorkspaceContent({
   // Stream progress for a running generation (SSE), with polling below as the fallback.
   const connectSSE = (runId: string) => {
     activeEventSourceRef.current?.close();
+    finishedRunIdRef.current = null;
 
     setIsProcessing(true);
     const eventSource = new EventSource(runsApi.eventsUrl(runId));
@@ -132,16 +148,14 @@ function WorkspaceContent({
       try {
         const { status } = JSON.parse(e.data) as { status: GenerationRun['status'] };
         setActiveRun((prev) => (prev ? { ...prev, status } : null));
-        if (isTerminalStatus(status)) finishRun();
+        if (isTerminalStatus(status)) finishRun(runId);
       } catch {
         // As above: polling keeps the status right if a frame cannot be read.
       }
     });
 
     eventSource.addEventListener('done', () => {
-      eventSource.close();
-      activeEventSourceRef.current = null;
-      finishRun();
+      finishRun(runId);
     });
 
     eventSource.addEventListener('error', async () => {
@@ -151,7 +165,7 @@ function WorkspaceContent({
         const detail = await runsApi.get(runId);
         setActiveRun(detail.run);
         if (isTerminalStatus(detail.run.status)) {
-          finishRun();
+          finishRun(runId);
           return;
         }
       } catch {
@@ -171,7 +185,7 @@ function WorkspaceContent({
 
       // Provisional run so the polling fallback does not re-read the previous, finished run.
       setActiveRun({
-        id: 'pending_' + Date.now(),
+        id: PROVISIONAL_RUN_PREFIX + Date.now(),
         projectId,
         runType: hasBaseVersion ? 'modification' : 'generation',
         status: 'generating',
@@ -197,9 +211,7 @@ function WorkspaceContent({
       }
 
       if (isTerminalStatus(started.status || started.run?.status || '')) {
-        setIsProcessing(false);
-        await reloadVersionsAndFiles();
-        setPreviewRefreshTrigger((prev) => prev + 1);
+        finishRun(started.runId);
       } else {
         connectSSE(started.runId);
       }
@@ -210,16 +222,17 @@ function WorkspaceContent({
     }
   };
 
-  // Watchdog: a run is bounded server-side, so never hold the UI lock longer than 60s.
+  // Watchdog for streamed runs: release the UI lock if no terminal status arrives within the
+  // server's stale threshold. A provisional run is bounded by its own request instead.
   useEffect(() => {
-    if (!isProcessing) return;
+    if (!isProcessing || isProvisional(activeRun?.id)) return;
     const timeout = setTimeout(() => {
       setIsProcessing(false);
       void reloadVersionsAndFiles();
-    }, 60000);
+    }, RUN_STALE_AFTER_MS);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isProcessing]);
+  }, [isProcessing, activeRun?.id]);
 
   // Initial load
   useEffect(() => {
@@ -281,22 +294,18 @@ function WorkspaceContent({
     };
   }, []);
 
-  // Polling fallback while processing (covers dropped streams and proxies that buffer SSE)
+  // Polling fallback while a real run streams (covers dropped streams and proxies that buffer SSE)
   useEffect(() => {
-    if (!isProcessing || !activeRun?.id) return;
+    if (!isProcessing || !activeRun || isProvisional(activeRun.id)) return;
+    const runId = activeRun.id;
 
     const interval = setInterval(async () => {
       try {
-        const detail = await runsApi.get(activeRun.id);
+        const detail = await runsApi.get(runId);
         applyRunDetail(detail);
-        if (isTerminalStatus(detail.run.status)) {
-          setIsProcessing(false);
-          activeEventSourceRef.current?.close();
-          activeEventSourceRef.current = null;
-          void reloadVersionsAndFiles();
-        }
+        if (isTerminalStatus(detail.run.status)) finishRun(runId);
       } catch {
-        // Expected while the provisional run id is pending; the next tick retries.
+        // A transient failure; the next tick retries and the stream may still report the end.
       }
     }, 1500);
 
