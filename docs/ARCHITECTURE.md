@@ -38,6 +38,41 @@ Route handlers are deliberately thin. They authenticate, authorize, validate, an
 
 Unknown errors return the route's generic message. The internal message goes to the log line that shares the `requestId`, so the client never sees it.
 
+## 2a. Layers and what may import what
+
+```
+src/app (routes)  ->  src/server, src/modules, src/lib   (server side)
+src/app (pages)   ->  src/hooks, src/components, src/lib/api, src/lib/runs, src/lib/format   (browser side)
+src/modules       ->  src/lib (db, observability), other modules
+src/lib           ->  nothing product-specific
+```
+
+| Layer | Holds | Rule |
+|---|---|---|
+| `src/app/api/v1/**/route.ts` | HTTP handlers | Authenticate, authorize, validate, call a module, return JSON. No business rules, no SQL. |
+| `src/server/jobs` | Orchestrator and run lifecycle | The only code that moves a run between states. |
+| `src/modules/*` | Product domains (planning, ai, generation, sandbox, repair, versioning, export, verification) | Know nothing about HTTP; take plain arguments, return plain results. |
+| `src/lib/db` | Storage facade | All persistence goes through `db`. `StorageAdapter` is the contract; the Prisma adapter is type-checked against it with `satisfies`, so the two backends cannot drift. |
+| `src/lib/http`, `src/lib/auth` | The API's cross-cutting concerns | `apiRoute`, `ApiError`, rate limits, ownership guards. |
+| `src/lib/api` | Browser client for `/api/v1` | The only place the UI calls `fetch`. |
+| `src/lib/runs/status.ts` | Run status rules | Pure; imported by both the server (reaping, 409s) and the workspace (when to stream, poll or stop). |
+| `src/types` | Domain types and request schemas | Shared by both sides; no runtime dependencies beyond Zod. |
+
+## 2b. The UI's data flow and state
+
+- **One client, one error type.** UI code calls `projectsApi.*` and `runsApi.*` (`src/lib/api/projects.ts`). `apiRequest` unwraps the envelope and throws `ApiClientError` for every failure, including network errors (`NETWORK_ERROR`) and non-JSON error pages, so `fetch` never fails silently on a 4xx. `describeError` turns any error into user-facing text, adding the request id for server errors so a report can be matched to its log line.
+- **State lives where it is rendered.** There is no global store, and none is needed: the projects and applications pages share `useProjectList`; the workspace owns its run, versions and files in component state, because nothing outside it reads them. The server is the source of truth. Mutations call the API first and update local state only on success.
+- **Load states are explicit:** `loading`, `ready`, `signed-out` (a 401 is not an error, it is a reason to offer sign-in) and `error` (shown with `ErrorState` and a retry).
+- **Run progress** streams over SSE with a 1.5 s polling fallback; both stop on `isTerminalStatus`, and an abandoned run is detected with the server's own `RUN_STALE_AFTER_MS`.
+- **Error boundaries.** `src/app/error.tsx` catches rendering errors per route, `global-error.tsx` catches a failing root layout, `not-found.tsx` serves unknown paths. Server errors show only their `digest`, which `instrumentation.ts` logs with the full error.
+
+## 2c. Conventions
+
+- Files: components in `PascalCase.tsx`, everything else `kebab-case.ts`; hooks `useX.ts`.
+- API: resources under `/api/v1/<resource>/<id>/<action>`; every handler is `apiRoute('<resource>.<action>', ...)`, which names its log lines.
+- Errors: route handlers throw `ApiError` helpers (`notFound`, `conflict`, `validationFailed`...); the UI throws and catches `ApiClientError`; server code logs through `logger`, never `console`.
+- IDs: `newId('<prefix>')` from the CSPRNG.
+
 ## 3. Generation runs as a state machine
 
 ```

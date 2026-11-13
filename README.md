@@ -125,12 +125,19 @@ A weekly job ([`sandbox-e2e.yml`](.github/workflows/sandbox-e2e.yml)) runs the f
 
 ```
 src/
-  app/api/v1/        REST + SSE route handlers (thin; business logic lives in modules)
+  app/               routes only: pages, error boundaries, and thin /api/v1 handlers
+  components/        workspace panels; ui/ for shared pieces (ErrorState)
+  hooks/             client data hooks (useProjectList)
+  lib/api/           browser client: the only place the UI calls fetch
   lib/http/          apiRoute wrapper, ApiError, rate limiter
-  lib/auth/          Clerk session → user provisioning, ownership guards
-  lib/db/            storage facade: Prisma adapter (prod) / JSON adapter (local dev)
+  lib/auth/          Clerk session -> user provisioning, ownership guards
+  lib/db/            storage facade: Prisma adapter (prod) / JSON adapter (local dev), one contract
+  lib/runs/          run status rules shared by server and UI
   modules/           planning · ai providers · generation · sandbox · repair · verification · versioning · export
-  server/jobs/       run orchestrator and lifecycle rules
+  server/jobs/       run orchestrator and lifecycle
+public/landing/      static marketing page served at /
 prisma/              schema + migrations
 tests/               unit, integration, benchmark harness
 ```
+
+Layer rules and the UI's data flow: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#2a-layers-and-what-may-import-what).

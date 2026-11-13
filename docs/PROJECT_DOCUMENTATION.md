@@ -234,60 +234,44 @@ The configured runtime specification is:
 
 ## 5. Repository Map
 
-The repository structure at commit `56549e7`:
+Current layout (each folder's job; see `docs/ARCHITECTURE.md` for how they connect):
 
 ```
 Shipshape/
-├── .agents/                          # Local agent skills and workflows
-├── .env.example                      # Template for environment variables
-├── AGENTS.md                         # Framework agent rules (Next.js 16 guardrails)
-├── package.json                      # Dependency manifests and scripts
-├── package-lock.json                 # Pinned dependency lockfile
-├── next.config.ts                    # Next.js configuration (Turbopack, cacheComponents)
-├── eslint.config.mjs                 # Flat ESLint configuration
-├── prisma.config.ts                  # Prisma configuration
-├── vitest.config.mts                 # Vitest test runner configuration
-├── tsconfig.json                     # Strict TypeScript compiler options
-├── prisma/
-│   ├── schema.prisma                 # 16-model PostgreSQL schema
-│   ├── migrations/                   # Applied SQL migration history
-│   │   ├── 20261028083000_init/
-│   │   └── 20261028110000_nullable_plan_json/
-│   └── schema.sql                    # Raw SQL DDL reference
-├── scripts/
-│   ├── audit-json-migration.mjs      # Validates JSON store records against Postgres
-│   └── import-json-to-neon.mjs       # Migrates local JSON records to PostgreSQL
+├── prisma/                           # schema.prisma, migrations/ (applied in CI against a fresh database)
+├── public/
+│   ├── landing/index.html            # Marketing page, served at / by a rewrite in next.config.ts
+│   └── assets/                       # Vendored design kit used only by the landing page
+├── scripts/                          # Benchmarks, Gemini preflight, JSON-to-Postgres import/audit
+├── docs/                             # Architecture, operations, security, this reference, reports/
 ├── src/
-│   ├── proxy.ts                      # Clerk middleware entry point
-│   ├── app/                          # Next.js App Router pages and API routes
-│   │   ├── page.tsx                  # Public landing page
-│   │   ├── projects/page.tsx         # Project management dashboard
-│   │   ├── applications/page.tsx     # Conversational assistant
-│   │   ├── workspace/[projectId]/    # Main builder workspace IDE
-│   │   ├── sign-in/ & sign-up/       # Clerk auth pages
-│   │   └── api/v1/                   # 21 route files (27 method operations)
-│   ├── components/                   # React 19 UI components
-│   │   ├── landing/                  # Landing page presentation components
-│   │   └── workspace/                # Workspace IDE panels (Header, Code, Diff, Preview)
-│   ├── lib/
-│   │   ├── auth/session.ts           # Clerk session verification and ownership
-│   │   ├── db/                       # Prisma adapter, JSON adapter, dynamic proxy
-│   │   └── project-utils.ts          # Title formatting and string sanitization
-│   ├── modules/
-│   │   ├── planning/                 # Domain catalog taxonomy and planning engine
-│   │   ├── generation/               # Deterministic 13-file scaffold synthesizer
-│   │   ├── ai/                       # Google Gemini API client and fallback logic
-│   │   ├── sandbox/                  # Local temp staging and provider interface
-│   │   ├── repair/                   # Bounded JSON/syntax repair loop
-│   │   ├── versioning/               # Diff engine and version restore
-│   │   └── export/                   # JSZip archive creation and secret scrubbing
-│   ├── server/
-│   │   ├── jobs/orchestrator.ts      # Generation workflow execution coordinator
-│   │   └── security/                 # Safe-path containment and secret scrubber
-│   └── types/index.ts                # TypeScript interfaces and Zod validation schemas
+│   ├── proxy.ts                      # Clerk session middleware
+│   ├── instrumentation.ts            # Boot (env validation) and unhandled-error logging
+│   ├── app/                          # Routes only: pages, layouts, error boundaries, API handlers
+│   │   ├── projects/ applications/ workspace/[projectId]/ sign-in/ sign-up/
+│   │   ├── error.tsx global-error.tsx not-found.tsx
+│   │   └── api/                      # health, ready, v1/* (thin handlers, see section 7)
+│   ├── components/
+│   │   ├── ui/                       # Shared presentational pieces (ErrorState)
+│   │   └── workspace/                # Workspace panels and TabButton
+│   ├── hooks/                        # Client data hooks (useProjectList)
+│   ├── lib/                          # Cross-cutting code with no product rules
+│   │   ├── api/                      # Browser API client and typed endpoint calls
+│   │   ├── auth/                     # Clerk identity -> user, ownership guards
+│   │   ├── db/                       # Storage facade: Prisma adapter / local JSON adapter
+│   │   ├── http/                     # apiRoute wrapper, ApiError, rate limiter
+│   │   ├── observability/            # Structured logger
+│   │   ├── runs/status.ts            # Run status rules shared by server and UI
+│   │   └── env.ts ids.ts format.ts project-utils.ts
+│   ├── modules/                      # Product domains: planning, ai, generation, sandbox,
+│   │                                 #   repair, verification, versioning, export
+│   ├── server/                       # Server-only: jobs/ (orchestrator, run lifecycle), security/
+│   ├── generated/prisma/             # Generated Prisma client (checked in; CI verifies it is current)
+│   └── types/index.ts                # Shared domain types and request Zod schemas
 └── tests/
-    ├── unit/                         # 10 unit test suites (Vitest)
-    └── integration/                  # 2 integration test suites
+    ├── unit/ integration/            # Vitest suites; Docker/Postgres suites skip when unavailable
+    ├── helpers/                      # Test-only helpers (local-store default user)
+    └── benchmark/                    # Scenario contracts used by the benchmark scripts
 ```
 
 ### 5.1 Local Runtime Artifacts (Git-Ignored)
@@ -304,7 +288,7 @@ The following directories and files are local runtime state and must never be co
 
 | Path | Source File | Rendering Mode | Purpose |
 |---|---|---|---|
-| `/` | `src/app/page.tsx` | Static (`○`) | Marketing landing page and prompt submission entry point. |
+| `/` | `public/landing/index.html` (rewrite) | Static file | Marketing page; links to sign-up and `/applications`. |
 | `/projects` | `src/app/projects/page.tsx` | Static (`○`) | Project listing, search, status overview, and project creation. |
 | `/applications` | `src/app/applications/page.tsx` | Static (`○`) | Full-screen conversational requirement gathering assistant. |
 | `/workspace/[projectId]` | `src/app/workspace/[projectId]/page.tsx` | Partial Prerender (`◐`) | Multi-panel workspace IDE with live preview, code tree, and chat. |
@@ -324,10 +308,11 @@ The following directories and files are local runtime state and must never be co
 | **`DiagnosticsPanel`** | `src/components/workspace/DiagnosticsPanel.tsx` | Manifest checks, JSON syntax validation results, and terminal build logs. |
 
 ### 6.3 Client State & Synchronization
-- **Primary State**: Component-level React hooks (`useState`, `useRef`, `useMemo`).
-- **Telemetry Stream**: `EventSource` connects to `GET /api/v1/generation-runs/:runId/events` to stream step progress (`step_started`, `file_generated`, `step_completed`).
-- **Polling Fallback**: If SSE disconnects or errors, the client polls `GET /api/v1/generation-runs/:runId` every 1,500ms.
-- **Client Watchdog**: A 60-second client watchdog unlocks the UI if the connection drops without emitting a terminal status event.
+- **Server state is fetched, not stored globally.** Pages call the typed client in `src/lib/api` (`projectsApi`, `runsApi`); `useProjectList` owns the project list for the projects and applications pages. No global store: each page owns the state it renders, and the server stays the source of truth (mutations call the API first, then update local state).
+- **Errors** arrive as one type, `ApiClientError` (status, code, request id). A 401 on a list is the `signed-out` state, not a failure; `describeError` produces the user-facing text and adds the request id for server errors.
+- **Run progress**: `EventSource` on `GET /api/v1/generation-runs/:runId/events`; if it errors or a proxy buffers it, the page polls `GET /api/v1/generation-runs/:runId` every 1,500 ms. Both stop on a terminal status from `src/lib/runs/status.ts`, the same rules the server uses (including the 120 s stale threshold).
+- **Client watchdog**: the UI lock is released after 60 s even if no terminal status arrives.
+- **URL state**: `runId` and `autostart` query parameters resume a run or start the first generation after the prompt page.
 
 ---
 
