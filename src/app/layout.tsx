@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Shipshape — AI-Powered Full-Stack Application Builder",
+  title: "Shipshape",
   description:
     "Convert natural language product requirements into complete, executable Next.js applications with isolated sandboxes, live preview, version diffs, and source export.",
   icons: {
