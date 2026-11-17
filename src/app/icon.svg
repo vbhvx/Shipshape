@@ -1,38 +1,83 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
-    <!-- Monochrome Dark Gradient matching the theme -->
-    <linearGradient id="squircle-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2a2a2e" />
-      <stop offset="50%" stop-color="#18181b" />
-      <stop offset="100%" stop-color="#09090b" />
+    <!-- Deep obsidian squircle surface -->
+    <linearGradient id="sq-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c1d25" />
+      <stop offset="50%" stop-color="#0f1015" />
+      <stop offset="100%" stop-color="#060608" />
+    </linearGradient>
+    
+    <!-- Metallic chamfer rim -->
+    <linearGradient id="sq-rim" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#71717a" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#27272a" stop-opacity="0.25" />
     </linearGradient>
 
-    <!-- Subtle Silver Metallic Border -->
-    <linearGradient id="border-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#71717a" />
-      <stop offset="100%" stop-color="#27272a" />
+    <!-- Port Sail (Electric Cyan to Cobalt) -->
+    <linearGradient id="sail-l" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#1d4ed8" />
     </linearGradient>
 
-    <!-- Drop Shadow for crisp typography -->
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#000000" flood-opacity="0.8" />
+    <!-- Starboard Sail (Luminous Sky to Royal Blue) -->
+    <linearGradient id="sail-r" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#bae6fd" />
+      <stop offset="40%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+
+    <!-- Hull Wings (Crisp Platinum & Titanium) -->
+    <linearGradient id="hull-l" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#cbd5e1" />
+    </linearGradient>
+    <linearGradient id="hull-r" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#94a3b8" />
+      <stop offset="100%" stop-color="#475569" />
+    </linearGradient>
+
+    <!-- Center Folded Origami Flap -->
+    <linearGradient id="hull-center" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+
+    <!-- Keel Plate -->
+    <linearGradient id="keel-plate" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#cbd5e1" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+
+    <!-- Aura / Ambient Radiance -->
+    <filter id="radiance" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2.5" stdDeviation="3.5" flood-color="#2563eb" flood-opacity="0.45" />
     </filter>
   </defs>
 
-  <!-- Squircle Base matching the attached screenshot geometry -->
-  <rect x="2" y="2" width="60" height="60" rx="17" fill="url(#squircle-grad)" stroke="url(#border-grad)" stroke-width="1.5" />
+  <!-- Squircle Base -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#sq-bg)" stroke="url(#sq-rim)" stroke-width="1.2" />
 
-  <!-- Centered Bold White Letter S from the attached screenshot -->
-  <text
-    x="32"
-    y="33.5"
-    text-anchor="middle"
-    dominant-baseline="central"
-    font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
-    font-weight="900"
-    font-size="37"
-    fill="#ffffff"
-    letter-spacing="-0.5"
-    filter="url(#shadow)"
-  >S</text>
+  <!-- Origami Vessel Group -->
+  <g filter="url(#radiance)">
+    <!-- Left Sail (Port) -->
+    <path d="M 31.2 12.5 L 18 33.5 L 31.2 33.5 Z" fill="url(#sail-l)" />
+    <!-- Right Sail (Starboard) -->
+    <path d="M 32.8 12.5 L 32.8 33.5 L 46 33.5 Z" fill="url(#sail-r)" />
+
+    <!-- Hull Left Wing -->
+    <path d="M 10 35 L 22 35 L 31.2 40 L 23 47 Z" fill="url(#hull-l)" />
+    <!-- Hull Right Wing -->
+    <path d="M 54 35 L 42 35 L 32.8 40 L 41 47 Z" fill="url(#hull-r)" />
+
+    <!-- Center Folded Triangle -->
+    <path d="M 22 35 L 42 35 L 32 40.5 Z" fill="url(#hull-center)" />
+    <!-- Bottom Keel Facet -->
+    <path d="M 23 47 L 32 40.5 L 41 47 Z" fill="url(#keel-plate)" />
+
+    <!-- Center Spine Crease Line -->
+    <line x1="32" y1="12.5" x2="32" y2="47" stroke="#ffffff" stroke-width="0.8" stroke-linecap="round" opacity="0.65" />
+  </g>
+
+  <!-- Hydrodynamic Wake Line -->
+  <path d="M 16 52 C 24 51 40 51 48 52" stroke="#38bdf8" stroke-width="1.3" stroke-linecap="round" opacity="0.5" />
 </svg>
